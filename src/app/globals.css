@@ -1,0 +1,33 @@
+@import 'tailwindcss';
+@theme inline {
+  --color-ink: #233442;
+  --color-muted: #687781;
+  --color-paper: #fbfaf7;
+  --color-blue: #dcecf5;
+  --color-blue-deep: #31566b;
+  --color-lilac: #eee9f7;
+  --color-green: #e4eee5;
+  --font-sans: Arial, Helvetica, sans-serif;
+}
+:root {
+  color-scheme: light;
+}
+html {
+  scroll-behavior: smooth;
+}
+body {
+  background: #fbfaf7;
+  color: #233442;
+  font-family: Arial, Helvetica, sans-serif;
+}
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+::selection {
+  background: #dcecf5;
+  color: #233442;
+}
