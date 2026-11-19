@@ -11,7 +11,7 @@ import type { Equipment } from '@/types';
 
 type Favorite = { equipmentId?: string; equipment?: { _id?: string } };
 
-export function EquipmentDetailActions({ item }: { item: Equipment }) {
+export function EquipmentDetailActions({ item, userId }: { item: Equipment; userId: string }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [favoriteBusy, setFavoriteBusy] = useState(true);
@@ -22,14 +22,14 @@ export function EquipmentDetailActions({ item }: { item: Equipment }) {
 
   useEffect(() => {
     let active = true;
-    apiFetch<{ favorites: Favorite[] }>('/favorites')
+    apiFetch<{ favorites: Favorite[] }>('/favorites', {}, userId)
       .then(({ favorites }) => {
         if (active) setIsFavorite((favorites || []).some((favorite) => (favorite.equipmentId || favorite.equipment?._id) === item._id));
       })
       .catch(() => { if (active) { setIsFavorite(false); setFavoriteLoadError(true); toast.error('Could not load your saved favorites', { id: `favorite-load-${item._id}` }); } })
       .finally(() => { if (active) setFavoriteBusy(false); });
     return () => { active = false; };
-  }, [item._id]);
+  }, [item._id, userId]);
 
   async function toggleFavorite() {
     if (favoriteBusy || busy) return;
@@ -41,7 +41,7 @@ export function EquipmentDetailActions({ item }: { item: Equipment }) {
     }
     setFavoriteBusy(true);
     try {
-      await apiFetch(`/favorites/${item._id}`, { method: isFavorite ? 'DELETE' : 'POST' });
+      await apiFetch(`/favorites/${item._id}`, { method: isFavorite ? 'DELETE' : 'POST' }, userId);
       setIsFavorite(!isFavorite);
       setFavoriteLoadError(false);
       toast.success(isFavorite ? 'Removed from favorites' : 'Added to favorites', { id: `favorite-${item._id}` });
@@ -77,7 +77,7 @@ export function EquipmentDetailActions({ item }: { item: Equipment }) {
     setBusy(true);
     const payload = { equipmentId: item._id, startDate, endDate, quantity, contactNumber: form.get('contactNumber'), deliveryAddress: form.get('deliveryAddress'), notes: form.get('notes') };
     try {
-      await apiFetch('/bookings', { method: 'POST', body: JSON.stringify(payload) });
+      await apiFetch('/bookings', { method: 'POST', body: JSON.stringify(payload) }, userId);
       toast.success('Booking request created', { id: 'booking-created' });
       setOpen(false);
       router.push('/dashboard/my-rentals');

@@ -50,7 +50,7 @@ export default async function EquipmentDetails({ params }: { params: Promise<{ i
               Listed by {item.ownerName || 'Equipment owner'}
             </p>
             {role === 'customer' || role === 'renter' ? (
-              <EquipmentDetailActions item={item} />
+              <EquipmentDetailActions item={item} userId={session.user.id} />
             ) : (
               <p className="mt-6 rounded-2xl bg-[#edf4f7] p-4 text-sm text-slate-600">
                 Equipment booking and favorites are available to customer accounts.
