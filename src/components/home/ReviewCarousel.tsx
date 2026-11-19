@@ -2,6 +2,7 @@
 
 import type { Review } from '@/types';
 import { AnimatePresence, motion } from 'framer-motion';
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 
 export function ReviewCarousel({ reviews }: { reviews: Review[] }) {
@@ -47,10 +48,28 @@ export function ReviewCarousel({ reviews }: { reviews: Review[] }) {
               {'★'.repeat(Math.max(1, Math.min(5, review.rating || 5)))}
             </p>
             <p className="my-6 text-xl leading-9 text-slate-600 sm:text-2xl">“{review.comment}”</p>
-            <p className="font-bold text-slate-900">{review.customerName || 'Gearly customer'}</p>
-            <p className="mt-1 text-xs text-slate-400">
-              {review.demoOnly ? 'Demo review' : 'Verified rental review'}
-            </p>
+            <div className="mt-2 flex items-center justify-center gap-3">
+              {review.customerImage ? (
+                <Image
+                  src={review.customerImage}
+                  alt=""
+                  width={40}
+                  height={40}
+                  className="h-10 w-10 rounded-full object-cover"
+                />
+              ) : (
+                <span className="grid h-10 w-10 place-items-center rounded-full bg-[#e7eff2] font-bold text-[#31566b]">
+                  {(review.customerName || 'G').slice(0, 1).toUpperCase()}
+                </span>
+              )}
+              <div className="text-left">
+                <p className="font-bold text-slate-900">{review.customerName || 'Gearly customer'}</p>
+                <p className="mt-1 text-xs text-slate-400">
+                  {review.createdAt ? new Date(review.createdAt).toLocaleDateString() : 'Verified rental review'}
+                  {review.equipmentTitle ? ` · ${review.equipmentTitle}` : ''}
+                </p>
+              </div>
+            </div>
           </motion.article>
         </AnimatePresence>
       </div>

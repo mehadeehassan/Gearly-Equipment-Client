@@ -176,7 +176,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
                 type="button"
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
                 onClick={() => setShowPassword((visible) => !visible)}
-                className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-slate-400 hover:text-slate-600 focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-[#86a8b9]"
+                className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-slate-400 hover:text-slate-600 focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-[#86a8b9]"
               >
                 {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
               </button>

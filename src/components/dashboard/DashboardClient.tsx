@@ -167,6 +167,8 @@ export function DashboardClient({ user }: { user: User }) {
       rows={data?.bookings || []}
       admin={isAdmin}
       owner={isOwner}
+      userId={user.id}
+      canReview={role === 'customer'}
       onPay={!isAdmin && !isOwner ? payForBooking : undefined}
       payingId={payingId}
     />

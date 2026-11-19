@@ -49,6 +49,7 @@ export interface Booking {
   transactionId?: string;
   stripePaymentIntentId?: string;
   bookingStatus: string;
+  reviewed?: boolean;
   contactNumber?: string;
   deliveryAddress?: string;
 }
@@ -84,8 +85,9 @@ export interface Analytics {
 export interface Review {
   _id: string;
   customerName?: string;
+  customerImage?: string;
+  equipmentTitle?: string;
   rating: number;
   comment: string;
   createdAt?: string;
-  demoOnly?: boolean;
 }

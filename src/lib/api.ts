@@ -78,8 +78,11 @@ export function apiFetch<T = unknown>(
   return performApiFetch<T>(path, options, userScope);
 }
 
-export async function publicFetch<T = unknown>(path: string): Promise<T> {
-  const response = await fetch(`${API}${path}`, { next: { revalidate: 30 } });
+export async function publicFetch<T = unknown>(path: string, options: { noStore?: boolean } = {}): Promise<T> {
+  const response = await fetch(
+    `${API}${path}`,
+    options.noStore ? { cache: 'no-store' } : { next: { revalidate: 30 } },
+  );
   const data = (await response.json().catch(() => ({}))) as ApiError;
   if (!response.ok) throw new Error(data.message || 'Unable to load data');
   return data as T;

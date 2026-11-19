@@ -5,7 +5,7 @@ import type { Review } from '@/types';
 export async function ReviewsSection() {
   let reviews: Review[] = [];
   try {
-    const data = await publicFetch<{ reviews: Review[] }>('/reviews');
+    const data = await publicFetch<{ reviews: Review[] }>('/reviews', { noStore: true });
     reviews = data.reviews || [];
   } catch {}
 
