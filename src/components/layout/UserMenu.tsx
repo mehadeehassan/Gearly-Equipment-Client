@@ -2,8 +2,8 @@
 import { authClient } from '@/lib/auth-client';
 import { notify as toast } from '@/lib/toast';
 import type { User } from '@/types';
-import Link from 'next/link';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 export function UserMenu({ user }: { user: User }) {
@@ -30,7 +30,13 @@ export function UserMenu({ user }: { user: User }) {
       >
         <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-full bg-blue font-bold text-blue-deep">
           {user.image ? (
-            <Image src={user.image} alt="Profile" width={36} height={36} className="h-full w-full object-cover" />
+            <Image
+              src={user.image}
+              alt="Profile"
+              width={36}
+              height={36}
+              className="h-full w-full object-cover"
+            />
           ) : (
             (user.name || user.email || 'U').slice(0, 1).toUpperCase()
           )}
