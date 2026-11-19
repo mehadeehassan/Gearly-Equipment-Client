@@ -1,5 +1,5 @@
 'use client';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, ApiRequestError } from '@/lib/api';
 import { notify as toast } from '@/lib/toast';
 import type { Analytics, Booking, Equipment, User } from '@/types';
 import { usePathname, useRouter } from 'next/navigation';
@@ -358,14 +358,36 @@ function AnalyticsPanel({ data, role }: { data: Analytics; role: string }) {
 function EquipmentForm({ onDone, userId }: { onDone: () => void; userId: string }) {
   const [busy, setBusy] = useState(false);
   const [image, setImage] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const submitLock = useRef(false);
+  const errorId = (name: string) => `add-equipment-${name}-error`;
+  const inputClass = (name: string) => `mt-2 h-11 w-full rounded-xl border px-3 font-normal ${fieldErrors[name] ? 'border-red-500' : 'border-slate-200'}`;
+  const showError = (name: string) => <span id={errorId(name)} className="block min-h-4 text-xs font-normal text-red-600" role="alert">{fieldErrors[name] || ''}</span>;
+  const fieldProps = (name: string) => ({
+    'aria-invalid': Boolean(fieldErrors[name]),
+    'aria-describedby': errorId(name),
+    onChange: () => setFieldErrors((errors) => ({ ...errors, [name]: '' })),
+  });
+
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!image) {
-      toast.error('Please upload an equipment image');
+    if (submitLock.current || busy) return;
+    const f = new FormData(e.currentTarget);
+    const errors: Record<string, string> = {};
+    for (const name of ['title', 'location', 'price', 'availableQuantity', 'category', 'description']) {
+      if (!String(f.get(name) || '').trim()) errors[name] = 'This field is required.';
+    }
+    if (f.get('price') && Number(f.get('price')) <= 0) errors.price = 'Enter a price greater than zero.';
+    if (f.get('availableQuantity') && Number(f.get('availableQuantity')) < 0) errors.availableQuantity = 'Quantity cannot be negative.';
+    if (!image) errors.image = 'Add an equipment image before submitting.';
+    if (Object.keys(errors).length) {
+      setFieldErrors(errors);
+      toast.error(Object.values(errors)[0]);
       return;
     }
+    setFieldErrors({});
+    submitLock.current = true;
     setBusy(true);
-    const f = new FormData(e.currentTarget);
     const payload: Record<string, string | number> = {
       ...(Object.fromEntries(f.entries()) as Record<string, string>),
       image,
@@ -377,14 +399,25 @@ function EquipmentForm({ onDone, userId }: { onDone: () => void; userId: string 
       toast.success('Equipment submitted for approval');
       onDone();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Unable to add equipment');
+      if (err instanceof ApiRequestError && Object.keys(err.fieldErrors).length) {
+        const mapped = Object.fromEntries(Object.entries(err.fieldErrors).map(([key, value]) => [key.split('.').pop()!.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase()), Array.isArray(value) ? value.join(', ') : value]));
+        const known = Object.fromEntries(Object.entries(mapped).filter(([key]) => ['title', 'location', 'price', 'availableQuantity', 'brand', 'model', 'category', 'rentalType', 'condition', 'description', 'terms', 'image'].includes(key)));
+        if (Object.keys(known).length) {
+          setFieldErrors(known);
+          toast.error(Object.values(known)[0]);
+        } else toast.error(err.message || 'Unable to add equipment. Please try again.');
+      } else {
+        toast.error(err instanceof TypeError ? 'Network error. Check your connection and try again.' : err instanceof Error ? err.message : 'Unable to add equipment');
+      }
     } finally {
+      submitLock.current = false;
       setBusy(false);
     }
   }
   return (
     <form
       onSubmit={submit}
+      noValidate
       className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-6 sm:grid-cols-2"
     >
       <h2 className="text-xl font-black sm:col-span-2">Add equipment listing</h2>
@@ -403,8 +436,10 @@ function EquipmentForm({ onDone, userId }: { onDone: () => void; userId: string 
             name={name}
             type={type}
             min={name === 'price' ? '0.01' : type === 'number' ? '0' : undefined}
-            className="mt-2 h-11 w-full rounded-xl border border-slate-200 px-3 font-normal"
+            {...fieldProps(name)}
+            className={inputClass(name)}
           />
+          {showError(name)}
         </label>
       ))}
       <label className="text-sm font-semibold">
@@ -412,7 +447,8 @@ function EquipmentForm({ onDone, userId }: { onDone: () => void; userId: string 
         <select
           name="category"
           required
-          className="mt-2 h-11 w-full rounded-xl border border-slate-200 px-3 font-normal"
+          {...fieldProps('category')}
+          className={inputClass('category')}
         >
           {[
             'Construction Equipment',
@@ -425,47 +461,57 @@ function EquipmentForm({ onDone, userId }: { onDone: () => void; userId: string 
             <option key={x}>{x}</option>
           ))}
         </select>
+        {showError('category')}
       </label>
       <label className="text-sm font-semibold">
         Rental type
         <select
           name="rentalType"
-          className="mt-2 h-11 w-full rounded-xl border border-slate-200 px-3 font-normal"
+          {...fieldProps('rentalType')}
+          className={inputClass('rentalType')}
         >
           <option>Daily</option>
           <option>Weekly</option>
           <option>Monthly</option>
         </select>
+        {showError('rentalType')}
       </label>
       <label className="text-sm font-semibold">
         Condition
         <input
           name="condition"
-          className="mt-2 h-11 w-full rounded-xl border border-slate-200 px-3 font-normal"
+          {...fieldProps('condition')}
+          className={inputClass('condition')}
         />
+        {showError('condition')}
       </label>
       <label className="text-sm font-semibold sm:col-span-2">
         Description
         <textarea
           required
+          {...fieldProps('description')}
           name="description"
           rows={3}
-          className="mt-2 w-full rounded-xl border border-slate-200 p-3 font-normal"
+          className={`mt-2 w-full rounded-xl border p-3 font-normal ${fieldErrors.description ? 'border-red-500' : 'border-slate-200'}`}
         />
+        {showError('description')}
       </label>
       <label className="text-sm font-semibold sm:col-span-2">
         Rental terms
         <textarea
           name="terms"
           rows={3}
-          className="mt-2 w-full rounded-xl border border-slate-200 p-3 font-normal"
+          {...fieldProps('terms')}
+          className={`mt-2 w-full rounded-xl border p-3 font-normal ${fieldErrors.terms ? 'border-red-500' : 'border-slate-200'}`}
         />
+        {showError('terms')}
       </label>
       <div className="sm:col-span-2">
-        <ImageUpload value={image} onChange={setImage} />
+        <ImageUpload value={image} onChange={(value) => { setImage(value); setFieldErrors((errors) => ({ ...errors, image: '' })); }} invalid={Boolean(fieldErrors.image)} errorId={errorId('image')} />
+        {showError('image')}
       </div>
       <button
-        disabled={busy || !image}
+        disabled={busy}
         className="rounded-xl bg-[#263b49] px-5 py-3 font-bold text-white disabled:opacity-50 sm:col-span-2"
       >
         {busy ? 'Submitting…' : 'Submit for approval'}

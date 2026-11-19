@@ -4,7 +4,7 @@ import { Providers } from '@/components/layout/Providers';
 import type { Metadata } from 'next';
 import './globals.css';
 export const metadata: Metadata = {
-  title: 'Gearly — Equipment, ready when you are',
+  title: 'Gearly — Equipment Rental Marketplace',
   description: 'Find, book and rent dependable equipment for your next project.',
 };
 export default function RootLayout({ children }: { children: React.ReactNode }) {

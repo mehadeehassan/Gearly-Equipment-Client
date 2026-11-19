@@ -9,10 +9,14 @@ export function ImageUpload({
   value,
   onChange,
   label = 'Equipment image',
+  invalid = false,
+  errorId,
 }: {
   value: string;
   onChange: (url: string) => void;
   label?: string;
+  invalid?: boolean;
+  errorId?: string;
 }) {
   const [busy, setBusy] = useState(false);
   async function upload(file?: File) {
@@ -52,7 +56,7 @@ export function ImageUpload({
   return (
     <div className="space-y-3">
       <span className="block text-sm font-semibold">{label}</span>
-      <label className="flex cursor-pointer items-center gap-4 rounded-2xl border border-dashed border-slate-300 bg-white p-4 transition hover:border-[#86a8b9] hover:bg-[#f5f9fb]">
+      <label className={`flex cursor-pointer items-center gap-4 rounded-2xl border border-dashed bg-white p-4 transition hover:border-[#86a8b9] hover:bg-[#f5f9fb] ${invalid ? 'border-red-500' : 'border-slate-300'}`}>
         <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#e7f0f5] text-[#31566b]">
           {busy ? (
             <LoaderCircle className="animate-spin" />
@@ -74,6 +78,8 @@ export function ImageUpload({
           type="file"
           accept="image/*"
           disabled={busy}
+          aria-invalid={invalid}
+          aria-describedby={errorId}
           className="sr-only"
           onChange={(e) => upload(e.target.files?.[0])}
         />

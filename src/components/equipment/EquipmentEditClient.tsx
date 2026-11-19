@@ -1,11 +1,11 @@
 'use client';
 
-import { apiFetch } from '@/lib/api';
+import { apiFetch, ApiRequestError } from '@/lib/api';
 import { notify as toast } from '@/lib/toast';
 import type { Equipment } from '@/types';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { ImageUpload } from '@/components/shared/ImageUpload';
 
 export function EquipmentEditClient({
@@ -21,6 +21,16 @@ export function EquipmentEditClient({
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [image, setImage] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const submitLock = useRef(false);
+  const errorId = (name: string) => `edit-equipment-${name}-error`;
+  const inputClass = (name: string) => `mt-2 h-12 w-full rounded-xl border px-3 font-normal ${fieldErrors[name] ? 'border-red-500' : 'border-slate-200'}`;
+  const showError = (name: string) => <span id={errorId(name)} className="block min-h-4 text-xs font-normal text-red-600" role="alert">{fieldErrors[name] || ''}</span>;
+  const fieldProps = (name: string) => ({
+    'aria-invalid': Boolean(fieldErrors[name]),
+    'aria-describedby': errorId(name),
+    onChange: () => setFieldErrors((errors) => ({ ...errors, [name]: '' })),
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -46,16 +56,26 @@ export function EquipmentEditClient({
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (saving) return;
+    if (submitLock.current || saving) return;
     const form = new FormData(event.currentTarget);
+    const errors: Record<string, string> = {};
+    for (const name of ['title', 'category', 'price', 'rentalType', 'location', 'availableQuantity', 'description']) {
+      if (!String(form.get(name) || '').trim()) errors[name] = 'This field is required.';
+    }
+    if (form.get('price') && Number(form.get('price')) <= 0) errors.price = 'Enter a price greater than zero.';
+    if (form.get('availableQuantity') && Number(form.get('availableQuantity')) < 0) errors.availableQuantity = 'Quantity cannot be negative.';
+    if (!image) errors.image = 'Add an equipment image before saving.';
+    if (Object.keys(errors).length) {
+      setFieldErrors(errors);
+      toast.error(Object.values(errors)[0]);
+      return;
+    }
+    setFieldErrors({});
+    submitLock.current = true;
     const payload = Object.fromEntries(form.entries());
     payload.price = String(Number(payload.price));
     payload.availableQuantity = String(Number(payload.availableQuantity));
     payload.image = image;
-    if (!image) {
-      toast.error('Add an equipment image before saving');
-      return;
-    }
     setSaving(true);
     try {
       await apiFetch(
@@ -67,8 +87,18 @@ export function EquipmentEditClient({
       router.push('/dashboard/my-equipment');
       router.refresh();
     } catch (cause) {
-      toast.error(cause instanceof Error ? cause.message : 'Unable to save equipment');
+      if (cause instanceof ApiRequestError && Object.keys(cause.fieldErrors).length) {
+        const mapped = Object.fromEntries(Object.entries(cause.fieldErrors).map(([key, value]) => [key.split('.').pop()!.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase()), Array.isArray(value) ? value.join(', ') : value]));
+        const known = Object.fromEntries(Object.entries(mapped).filter(([key]) => ['title', 'category', 'price', 'rentalType', 'location', 'availableQuantity', 'brand', 'model', 'condition', 'description', 'terms', 'image'].includes(key)));
+        if (Object.keys(known).length) {
+          setFieldErrors(known);
+          toast.error(Object.values(known)[0]);
+        } else toast.error(cause.message || 'Unable to save equipment. Please try again.');
+      } else {
+        toast.error(cause instanceof TypeError ? 'Network error. Check your connection and try again.' : cause instanceof Error ? cause.message : 'Unable to save equipment');
+      }
     } finally {
+      submitLock.current = false;
       setSaving(false);
     }
   }
@@ -119,6 +149,7 @@ export function EquipmentEditClient({
       </div>
       <form
         onSubmit={save}
+        noValidate
         className="grid gap-5 rounded-3xl border border-slate-200 bg-white p-5 sm:grid-cols-2 sm:p-7"
       >
         <label className="text-sm font-semibold">
@@ -128,16 +159,19 @@ export function EquipmentEditClient({
             name="title"
             defaultValue={equipment.title}
             maxLength={120}
-            className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal"
+            {...fieldProps('title')}
+            className={inputClass('title')}
           />
+          {showError('title')}
         </label>
         <label className="text-sm font-semibold">
           Category
           <select
             required
+            {...fieldProps('category')}
             name="category"
             defaultValue={equipment.category}
-            className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal"
+            className={inputClass('category')}
           >
             {[
               'Construction Equipment',
@@ -150,6 +184,7 @@ export function EquipmentEditClient({
               <option key={category}>{category}</option>
             ))}
           </select>
+          {showError('category')}
         </label>
         <label className="text-sm font-semibold">
           Price
@@ -160,21 +195,25 @@ export function EquipmentEditClient({
             min="0.01"
             step="0.01"
             defaultValue={equipment.price}
-            className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal"
+            {...fieldProps('price')}
+            className={inputClass('price')}
           />
+          {showError('price')}
         </label>
         <label className="text-sm font-semibold">
           Rental type
           <select
             required
+            {...fieldProps('rentalType')}
             name="rentalType"
             defaultValue={equipment.rentalType}
-            className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal"
+            className={inputClass('rentalType')}
           >
             {['Daily', 'Weekly', 'Monthly'].map((type) => (
               <option key={type}>{type}</option>
             ))}
           </select>
+          {showError('rentalType')}
         </label>
         <label className="text-sm font-semibold">
           Location
@@ -182,8 +221,10 @@ export function EquipmentEditClient({
             required
             name="location"
             defaultValue={equipment.location}
-            className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal"
+            {...fieldProps('location')}
+            className={inputClass('location')}
           />
+          {showError('location')}
         </label>
         <label className="text-sm font-semibold">
           Available quantity
@@ -194,43 +235,53 @@ export function EquipmentEditClient({
             min="0"
             step="1"
             defaultValue={equipment.availableQuantity}
-            className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal"
+            {...fieldProps('availableQuantity')}
+            className={inputClass('availableQuantity')}
           />
+          {showError('availableQuantity')}
         </label>
         <label className="text-sm font-semibold">
           Brand
           <input
             name="brand"
             defaultValue={equipment.brand || ''}
-            className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal"
+            {...fieldProps('brand')}
+            className={inputClass('brand')}
           />
+          {showError('brand')}
         </label>
         <label className="text-sm font-semibold">
           Model
           <input
             name="model"
             defaultValue={equipment.model || ''}
-            className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal"
+            {...fieldProps('model')}
+            className={inputClass('model')}
           />
+          {showError('model')}
         </label>
         <label className="text-sm font-semibold">
           Condition
           <input
             name="condition"
             defaultValue={equipment.condition || ''}
-            className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal"
+            {...fieldProps('condition')}
+            className={inputClass('condition')}
           />
+          {showError('condition')}
         </label>
         <div className="sm:col-span-2">
           <label className="block text-sm font-semibold">
             Description
             <textarea
               required
+              {...fieldProps('description')}
               name="description"
               defaultValue={equipment.description}
               rows={5}
-              className="mt-2 w-full rounded-xl border border-slate-200 p-3 font-normal"
+              className={`mt-2 w-full rounded-xl border p-3 font-normal ${fieldErrors.description ? 'border-red-500' : 'border-slate-200'}`}
             />
+            {showError('description')}
           </label>
         </div>
         <div className="sm:col-span-2">
@@ -239,13 +290,16 @@ export function EquipmentEditClient({
             <textarea
               name="terms"
               defaultValue={equipment.terms || ''}
+              {...fieldProps('terms')}
               rows={3}
-              className="mt-2 w-full rounded-xl border border-slate-200 p-3 font-normal"
+              className={`mt-2 w-full rounded-xl border p-3 font-normal ${fieldErrors.terms ? 'border-red-500' : 'border-slate-200'}`}
             />
+            {showError('terms')}
           </label>
         </div>
         <div className="sm:col-span-2">
-          <ImageUpload value={image} onChange={setImage} />
+          <ImageUpload value={image} onChange={(value) => { setImage(value); setFieldErrors((errors) => ({ ...errors, image: '' })); }} invalid={Boolean(fieldErrors.image)} errorId={errorId('image')} />
+          {showError('image')}
         </div>
         <div className="flex flex-wrap gap-3 sm:col-span-2">
           <button

@@ -14,6 +14,7 @@ type Favorite = { equipmentId?: string; equipment?: { _id?: string } };
 
 export function EquipmentDetailActions({ item, userId }: { item: Equipment; userId: string }) {
   const [open, setOpen] = useState(false);
+  const [bookingErrors, setBookingErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [favoriteBusy, setFavoriteBusy] = useState(true);
   const [favoriteLoadError, setFavoriteLoadError] = useState(false);
@@ -98,21 +99,24 @@ export function EquipmentDetailActions({ item, userId }: { item: Equipment; user
   async function book(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formElement = event.currentTarget;
-    if (!formElement.reportValidity()) return;
     const form = new FormData(formElement);
     const startDate = String(form.get('startDate') || '');
     const endDate = String(form.get('endDate') || '');
     const quantity = Number(form.get('quantity'));
-    if (new Date(endDate) <= new Date(startDate)) {
-      toast.error('End date must be after the start date', { id: 'booking-date-validation' });
+    const nextErrors: Record<string, string> = {};
+    if (!startDate) nextErrors.startDate = 'Choose a start date.';
+    if (!endDate) nextErrors.endDate = 'Choose an end date.';
+    if (new Date(endDate) <= new Date(startDate)) nextErrors.endDate = 'End date must be after the start date.';
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > item.availableQuantity) nextErrors.quantity = 'Choose a quantity within the available amount.';
+    if (!String(form.get('contactNumber') || '').trim()) nextErrors.contactNumber = 'Enter a contact number.';
+    else if (!/^[0-9+() -]{7,20}$/.test(String(form.get('contactNumber')))) nextErrors.contactNumber = 'Enter a valid contact number.';
+    if (!String(form.get('deliveryAddress') || '').trim()) nextErrors.deliveryAddress = 'Enter a delivery address.';
+    if (Object.keys(nextErrors).length) {
+      setBookingErrors(nextErrors);
+      toast.error(Object.values(nextErrors)[0]);
       return;
     }
-    if (quantity < 1 || quantity > item.availableQuantity) {
-      toast.error('Choose a quantity within the available amount', {
-        id: 'booking-quantity-validation',
-      });
-      return;
-    }
+    setBookingErrors({});
     setBusy(true);
     const payload = {
       equipmentId: item._id,
@@ -145,7 +149,7 @@ export function EquipmentDetailActions({ item, userId }: { item: Equipment; user
         );
         router.push('/dashboard/my-rentals');
       } else {
-        toast.error(error instanceof Error ? error.message : 'Booking failed', {
+        toast.error(error instanceof TypeError ? 'Network error. Check your connection and try again.' : 'Unable to submit your booking. Please try again.', {
           id: 'booking-create-error',
         });
       }
@@ -239,71 +243,86 @@ export function EquipmentDetailActions({ item, userId }: { item: Equipment; user
                   <span className="block text-xs font-normal text-slate-500">per {rentalUnit}</span>
                 </p>
               </div>
-              <form onSubmit={book} className="grid gap-4 p-5 sm:grid-cols-2 sm:p-7">
+              <form onSubmit={book} noValidate className="grid gap-4 p-5 sm:grid-cols-2 sm:p-7">
                 <label className="text-sm font-semibold">
                   Start date
                   <input
                     required
+                    aria-invalid={!!bookingErrors.startDate}
+                    aria-describedby="booking-startDate-error"
                     name="startDate"
                     type="date"
                     min={initialDate}
                     value={bookingDates.startDate}
                     onChange={(event) =>
-                      setBookingDates((value) => ({ ...value, startDate: event.target.value }))
+                      { setBookingErrors((errors) => ({ ...errors, startDate: '' })); setBookingDates((value) => ({ ...value, startDate: event.target.value })); }
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal"
+                    className={`mt-2 h-12 w-full rounded-xl border px-3 font-normal ${bookingErrors.startDate ? 'border-red-500' : 'border-slate-200'}`}
                   />
+                  <span id="booking-startDate-error" className="block min-h-4 text-xs font-normal text-red-600" role="alert">{bookingErrors.startDate || ''}</span>
                 </label>
                 <label className="text-sm font-semibold">
                   End date
                   <input
                     required
+                    aria-invalid={!!bookingErrors.endDate}
+                    aria-describedby="booking-endDate-error"
                     name="endDate"
                     type="date"
                     min={bookingDates.startDate || initialDate}
                     value={bookingDates.endDate}
-                    onChange={(event) =>
-                      setBookingDates((value) => ({ ...value, endDate: event.target.value }))
-                    }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal"
+                    onChange={(event) => { setBookingErrors((errors) => ({ ...errors, endDate: '' })); setBookingDates((value) => ({ ...value, endDate: event.target.value })); }}
+                    className={`mt-2 h-12 w-full rounded-xl border px-3 font-normal ${bookingErrors.endDate ? 'border-red-500' : 'border-slate-200'}`}
                   />
+                  <span id="booking-endDate-error" className="block min-h-4 text-xs font-normal text-red-600" role="alert">{bookingErrors.endDate || ''}</span>
                 </label>
                 <label className="text-sm font-semibold">
                   Quantity
                   <input
                     required
+                    aria-invalid={!!bookingErrors.quantity}
+                    aria-describedby="booking-quantity-error"
                     name="quantity"
                     type="number"
                     min="1"
                     max={item.availableQuantity}
                     value={bookingDates.quantity}
                     onChange={(event) =>
-                      setBookingDates((value) => ({
+                      { setBookingErrors((errors) => ({ ...errors, quantity: '' })); setBookingDates((value) => ({
                         ...value,
                         quantity: Math.max(1, Number(event.target.value) || 1),
-                      }))
+                      })); }
                     }
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal"
+                    className={`mt-2 h-12 w-full rounded-xl border px-3 font-normal ${bookingErrors.quantity ? 'border-red-500' : 'border-slate-200'}`}
                   />
+                  <span id="booking-quantity-error" className="block min-h-4 text-xs font-normal text-red-600" role="alert">{bookingErrors.quantity || ''}</span>
                 </label>
                 <label className="text-sm font-semibold">
                   Contact number
                   <input
                     required
+                    aria-invalid={!!bookingErrors.contactNumber}
+                    aria-describedby="booking-contactNumber-error"
                     name="contactNumber"
                     type="tel"
                     pattern="[0-9+() -]{7,20}"
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal"
+                    onChange={() => setBookingErrors((errors) => ({ ...errors, contactNumber: '' }))}
+                    className={`mt-2 h-12 w-full rounded-xl border px-3 font-normal ${bookingErrors.contactNumber ? 'border-red-500' : 'border-slate-200'}`}
                     placeholder="01XXXXXXXXX"
                   />
+                  <span id="booking-contactNumber-error" className="block min-h-4 text-xs font-normal text-red-600" role="alert">{bookingErrors.contactNumber || ''}</span>
                 </label>
                 <label className="text-sm font-semibold sm:col-span-2">
                   Delivery address
                   <input
                     required
+                    aria-invalid={!!bookingErrors.deliveryAddress}
+                    aria-describedby="booking-deliveryAddress-error"
                     name="deliveryAddress"
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal"
+                    onChange={() => setBookingErrors((errors) => ({ ...errors, deliveryAddress: '' }))}
+                    className={`mt-2 h-12 w-full rounded-xl border px-3 font-normal ${bookingErrors.deliveryAddress ? 'border-red-500' : 'border-slate-200'}`}
                   />
+                  <span id="booking-deliveryAddress-error" className="block min-h-4 text-xs font-normal text-red-600" role="alert">{bookingErrors.deliveryAddress || ''}</span>
                 </label>
                 <label className="text-sm font-semibold sm:col-span-2">
                   Additional notes <span className="font-normal text-slate-400">(optional)</span>

@@ -1,5 +1,5 @@
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-type ApiError = { message?: string };
+type ApiError = { message?: string; errors?: Record<string, string | string[]>; fieldErrors?: Record<string, string | string[]> };
 
 const inFlightRequests = new Map<string, Promise<unknown>>();
 
@@ -20,6 +20,7 @@ export class ApiRequestError extends Error {
   constructor(
     message: string,
     public readonly status: number,
+    public readonly fieldErrors: Record<string, string | string[]> = {},
   ) {
     super(message);
     this.name = 'ApiRequestError';
@@ -57,7 +58,7 @@ async function performApiFetch<T>(
     },
   });
   const data = (await response.json().catch(() => ({}))) as ApiError;
-  if (!response.ok) throw new ApiRequestError(data.message || 'Request failed', response.status);
+  if (!response.ok) throw new ApiRequestError(data.message || 'Request failed', response.status, data.fieldErrors || data.errors || {});
   return data as T;
 }
 

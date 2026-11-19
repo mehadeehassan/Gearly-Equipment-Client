@@ -7,12 +7,18 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { ImageUpload } from '@/components/shared/ImageUpload';
+
+function FieldError({ id, message }: { id: string; message?: string }) {
+  return <span id={id} className="mt-1 block min-h-4 text-xs font-normal text-red-600" role="alert">{message || ''}</span>;
+}
+
 export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const router = useRouter();
   const params = useSearchParams();
   const [busy, setBusy] = useState(false);
   const [image, setImage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const isRegister = mode === 'register';
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -21,21 +27,45 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
     const name = String(data.get('name') || '');
     const email = String(data.get('email'));
     const password = String(data.get('password'));
+    const errors: Record<string, string> = {};
+    if (isRegister && !name.trim()) errors.name = 'Enter your name.';
+    if (!email.trim()) errors.email = 'Enter your email address.';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Enter a valid email address.';
+    if (!password) errors.password = 'Enter your password.';
     if (isRegister && (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || password.length < 6)) {
-      toast.error('Password must include uppercase, lowercase and at least 6 characters');
+      errors.password = 'Use at least 6 characters, including uppercase and lowercase letters.';
+    }
+    if (Object.keys(errors).length) {
+      setFieldErrors(errors);
+      toast.error(Object.values(errors)[0]);
       setBusy(false);
       return;
     }
+    setFieldErrors({});
     try {
       const result = isRegister
         ? await authClient.signUp.email({ name, email, password, image })
         : await authClient.signIn.email({ email, password });
-      if (result.error) throw new Error(result.error.message || 'Authentication failed');
+      if (result.error) {
+        const rawMessage = result.error.message || '';
+        const lowerMessage = rawMessage.toLowerCase();
+        if (isRegister && /already|exist|duplicate|taken/.test(lowerMessage)) {
+          setFieldErrors({ email: 'An account with this email already exists.' });
+          toast.error('An account with this email already exists.');
+        } else if (!isRegister && /credential|password|email|user not found|invalid/.test(lowerMessage)) {
+          setFieldErrors({ email: 'Email or password is incorrect.', password: 'Email or password is incorrect.' });
+          toast.error('Email or password is incorrect.');
+        } else {
+          toast.error('Unable to complete your request. Please try again.');
+        }
+        setBusy(false);
+        return;
+      }
       toast.success(isRegister ? 'Account created successfully' : 'Welcome back!');
       router.push(params.get('redirect') || '/dashboard');
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Something went wrong');
+      toast.error(err instanceof TypeError ? 'Network error. Check your connection and try again.' : 'Unable to complete your request. Please try again.');
       setBusy(false);
     }
   }
@@ -95,16 +125,20 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
           OR WITH EMAIL
           <span className="h-px flex-1 bg-slate-200" />
         </div>
-        <form onSubmit={submit} className="space-y-4">
+        <form onSubmit={submit} noValidate className="space-y-4">
           {isRegister && (
             <label className="block text-sm font-semibold">
               Full name
               <input
                 name="name"
                 required
-                className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 font-normal outline-none focus:border-[#86a8b9]"
+                aria-invalid={!!fieldErrors.name}
+                aria-describedby={fieldErrors.name ? 'name-error' : undefined}
+                onChange={() => setFieldErrors((errors) => ({ ...errors, name: '' }))}
+                className={`mt-2 h-12 w-full rounded-xl border bg-white px-4 font-normal outline-none focus:border-[#86a8b9] ${fieldErrors.name ? 'border-red-500' : 'border-slate-200'}`}
                 placeholder="Your name"
               />
+              <FieldError id="name-error" message={fieldErrors.name} />
             </label>
           )}
           <label className="block text-sm font-semibold">
@@ -113,9 +147,13 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
               name="email"
               type="email"
               required
-              className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 font-normal outline-none focus:border-[#86a8b9]"
+              aria-invalid={!!fieldErrors.email}
+              aria-describedby={fieldErrors.email ? 'email-error' : undefined}
+              onChange={() => setFieldErrors((errors) => ({ ...errors, email: '' }))}
+              className={`mt-2 h-12 w-full rounded-xl border bg-white px-4 font-normal outline-none focus:border-[#86a8b9] ${fieldErrors.email ? 'border-red-500' : 'border-slate-200'}`}
               placeholder="you@example.com"
             />
+            <FieldError id="email-error" message={fieldErrors.email} />
           </label>
           {isRegister && (
             <ImageUpload value={image} onChange={setImage} label="Profile photo (optional)" />
@@ -128,7 +166,10 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
                 type={showPassword ? 'text' : 'password'}
                 minLength={6}
                 required
-                className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 pr-12 font-normal outline-none focus:border-[#86a8b9]"
+                aria-invalid={!!fieldErrors.password}
+                aria-describedby={fieldErrors.password ? 'password-error' : undefined}
+                onChange={() => setFieldErrors((errors) => ({ ...errors, password: '' }))}
+                className={`h-12 w-full rounded-xl border bg-white px-4 pr-12 font-normal outline-none focus:border-[#86a8b9] ${fieldErrors.password ? 'border-red-500' : 'border-slate-200'}`}
                 placeholder="••••••••"
               />
               <button
@@ -140,6 +181,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
                 {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
               </button>
             </span>
+            <FieldError id="password-error" message={fieldErrors.password} />
           </label>
           {isRegister && (
             <p className="text-xs text-slate-400">
