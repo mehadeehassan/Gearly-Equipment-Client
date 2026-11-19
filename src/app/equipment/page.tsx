@@ -2,8 +2,8 @@ import { EquipmentCard } from '@/components/EquipmentCard';
 import { EquipmentExplorer } from '@/components/EquipmentExplorer';
 import { EquipmentSkeleton } from '@/components/Skeletons';
 import { publicFetch } from '@/lib/api';
-import Link from 'next/link';
 import type { Equipment, EquipmentResponse } from '@/types';
+import Link from 'next/link';
 import { Suspense } from 'react';
 async function Results({
   searchParams,
@@ -48,7 +48,7 @@ async function Results({
         <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center">
           <h3 className="text-xl font-bold">No equipment found</h3>
           <p className="mt-2 text-sm text-slate-500">Try another search or remove some filters.</p>
-          <Link href="/equipment" className="mt-5 inline-block font-bold text-[#31566b]">
+          <Link href="/equipment" className="mt-5 inline-block font-bold text-blue-deep">
             Clear all filters ↗
           </Link>
         </div>
@@ -57,7 +57,7 @@ async function Results({
         <Link
           aria-disabled={data.page <= 1}
           className={
-            data.page <= 1 ? 'pointer-events-none text-slate-300' : 'font-bold text-[#31566b]'
+            data.page <= 1 ? 'pointer-events-none text-slate-300' : 'font-bold text-blue-deep'
           }
           href={`/equipment?${new URLSearchParams({ ...Object.fromEntries(query), page: String(Math.max(1, data.page - 1)) })}`}
         >
@@ -71,7 +71,7 @@ async function Results({
           className={
             data.page >= data.totalPages
               ? 'pointer-events-none text-slate-300'
-              : 'font-bold text-[#31566b]'
+              : 'font-bold text-blue-deep'
           }
           href={`/equipment?${new URLSearchParams({ ...Object.fromEntries(query), page: String(Math.min(data.totalPages, data.page + 1)) })}`}
         >

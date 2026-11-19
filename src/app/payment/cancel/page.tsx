@@ -2,7 +2,7 @@ import Link from 'next/link';
 export default function PaymentCancel() {
   return (
     <div className="grid min-h-[65vh] place-items-center px-5 py-16">
-      <div className="max-w-lg rounded-[32px] border border-slate-200 bg-white p-10 text-center">
+      <div className="max-w-lg rounded-4xl border border-slate-200 bg-white p-10 text-center">
         <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-amber-50 text-3xl">
           ↩
         </span>
