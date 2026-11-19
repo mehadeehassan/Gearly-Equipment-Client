@@ -13,9 +13,10 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { ConfirmDialog } from '../shared/ConfirmDialog';
 import { StatusBadge } from '../shared/StatusBadge';
+import { ImageUpload } from '../shared/ImageUpload';
 
 type BookingRow = Booking & { equipmentImage?: string };
 type FavoriteRow = { _id: string; equipment?: Equipment };
@@ -322,15 +323,19 @@ export function EquipmentTable({
     item: Equipment;
     kind: 'delete' | 'reject';
   } | null>(null);
-  function edit(item: Equipment) {
-    const title = window.prompt('Equipment title', item.title);
-    if (title === null) return;
-    const price = window.prompt('Rental price', String(item.price));
-    if (price === null) return;
-    void onAction(`${admin ? '/admin' : '/owner'}/equipment/${item._id}`, 'PATCH', {
-      title,
-      price: Number(price),
+  const [editingItem, setEditingItem] = useState<Equipment | null>(null);
+  async function saveEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingItem) return;
+    const form = new FormData(event.currentTarget);
+    const values = Object.fromEntries(form.entries());
+    const saved = await onAction(`/admin/equipment/${editingItem._id}`, 'PATCH', {
+      ...values,
+      price: Number(values.price),
+      availableQuantity: Number(values.availableQuantity),
+      image: editingItem.image,
     });
+    if (saved) setEditingItem(null);
   }
 
   return (
@@ -404,7 +409,7 @@ export function EquipmentTable({
                     icon={Pencil}
                     label={`Edit ${item.title}`}
                     disabled={busy}
-                    onClick={() => edit(item)}
+                    onClick={() => setEditingItem(item)}
                   />
                 )}
                 <IconButton
@@ -441,6 +446,86 @@ export function EquipmentTable({
           );
         }}
       />
+      {admin && editingItem && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/55 p-3 sm:p-6"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !busy) setEditingItem(null);
+          }}
+        >
+          <form
+            onSubmit={saveEdit}
+            className="my-auto grid w-full max-w-3xl gap-4 rounded-3xl bg-white p-5 shadow-xl sm:grid-cols-2 sm:p-7"
+            aria-label="Update equipment"
+          >
+            <div className="flex items-start justify-between sm:col-span-2">
+              <div>
+                <p className="text-xs font-bold tracking-[.16em] text-[#6c91a7]">ADMIN</p>
+                <h2 className="mt-1 text-2xl font-black">Update equipment</h2>
+              </div>
+              <button type="button" aria-label="Close" onClick={() => setEditingItem(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100">
+                <X size={20} aria-hidden="true" />
+              </button>
+            </div>
+            <label className="text-sm font-semibold">
+              Equipment title
+              <input required name="title" defaultValue={editingItem.title} maxLength={120} className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal" />
+            </label>
+            <label className="text-sm font-semibold">
+              Category
+              <select required name="category" defaultValue={editingItem.category} className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal">
+                {['Construction Equipment', 'Photography Equipment', 'Vehicles & Transportation', 'Agriculture Equipment', 'Electronics', 'Event Equipment'].map((category) => <option key={category}>{category}</option>)}
+              </select>
+            </label>
+            <label className="text-sm font-semibold">
+              Price
+              <input required name="price" type="number" min="0.01" step="0.01" defaultValue={editingItem.price} className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal" />
+            </label>
+            <label className="text-sm font-semibold">
+              Rental type
+              <select required name="rentalType" defaultValue={editingItem.rentalType} className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal">
+                {['Daily', 'Weekly', 'Monthly'].map((type) => <option key={type}>{type}</option>)}
+              </select>
+            </label>
+            <label className="text-sm font-semibold">
+              Location
+              <input required name="location" defaultValue={editingItem.location} className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal" />
+            </label>
+            <label className="text-sm font-semibold">
+              Available quantity
+              <input required name="availableQuantity" type="number" min="0" step="1" defaultValue={editingItem.availableQuantity} className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal" />
+            </label>
+            <label className="text-sm font-semibold">
+              Brand
+              <input name="brand" defaultValue={editingItem.brand || ''} className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal" />
+            </label>
+            <label className="text-sm font-semibold">
+              Model
+              <input name="model" defaultValue={editingItem.model || ''} className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal" />
+            </label>
+            <label className="text-sm font-semibold sm:col-span-2">
+              Condition
+              <input name="condition" defaultValue={editingItem.condition || ''} className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-3 font-normal" />
+            </label>
+            <label className="text-sm font-semibold sm:col-span-2">
+              Description
+              <textarea required name="description" defaultValue={editingItem.description} rows={4} className="mt-2 w-full rounded-xl border border-slate-200 p-3 font-normal" />
+            </label>
+            <label className="text-sm font-semibold sm:col-span-2">
+              Rental terms
+              <textarea name="terms" defaultValue={editingItem.terms || ''} rows={3} className="mt-2 w-full rounded-xl border border-slate-200 p-3 font-normal" />
+            </label>
+            <div className="sm:col-span-2">
+              <ImageUpload value={editingItem.image || ''} onChange={(image) => setEditingItem({ ...editingItem, image })} />
+            </div>
+            <div className="flex justify-end gap-3 sm:col-span-2">
+              <button type="button" onClick={() => setEditingItem(null)} className="rounded-xl border border-slate-200 px-5 py-3 font-bold text-slate-700">Cancel</button>
+              <button disabled={busy} className="rounded-xl bg-[#263b49] px-6 py-3 font-bold text-white disabled:opacity-50">Save changes</button>
+            </div>
+          </form>
+        </div>
+      )}
     </>
   );
 }

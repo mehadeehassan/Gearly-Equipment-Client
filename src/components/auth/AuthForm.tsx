@@ -5,12 +5,14 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { ImageUpload } from '@/components/shared/ImageUpload';
 export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const router = useRouter();
   const params = useSearchParams();
   const [busy, setBusy] = useState(false);
   const [image, setImage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const isRegister = mode === 'register';
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -120,14 +122,24 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
           )}
           <label className="block text-sm font-semibold">
             Password
-            <input
-              name="password"
-              type="password"
-              minLength={6}
-              required
-              className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 font-normal outline-none focus:border-[#86a8b9]"
-              placeholder="••••••••"
-            />
+            <span className="relative mt-2 block">
+              <input
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                minLength={6}
+                required
+                className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 pr-12 font-normal outline-none focus:border-[#86a8b9]"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                onClick={() => setShowPassword((visible) => !visible)}
+                className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-slate-400 hover:text-slate-600 focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-[#86a8b9]"
+              >
+                {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+              </button>
+            </span>
           </label>
           {isRegister && (
             <p className="text-xs text-slate-400">
