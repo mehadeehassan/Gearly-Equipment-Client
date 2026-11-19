@@ -3,6 +3,7 @@ import { Reveal } from '@/components/Reveal';
 import { ReviewCarousel } from '@/components/ReviewCarousel';
 import { publicFetch } from '@/lib/api';
 import type { Equipment, Review } from '@/types';
+import Image from 'next/image';
 import Link from 'next/link';
 const categories = [
   ['01', 'Construction Equipment', '/equipment?category=Construction%20Equipment'],
@@ -71,9 +72,11 @@ export default async function Home() {
           </div>
         </div>
         <Reveal className="relative">
-          <div className="relative overflow-hidden rounded-[34px] bg-[#e6edf0] shadow-2xl shadow-slate-300/50">
-            <img
-              className="h-[430px] w-full object-cover sm:h-[560px]"
+          <div className="relative h-[430px] overflow-hidden rounded-[34px] bg-[#e6edf0] shadow-2xl shadow-slate-300/50 sm:h-[560px]">
+            <Image
+              fill
+              sizes="(min-width: 1024px) 50vw, 100vw"
+              className="object-cover"
               src="https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=1400"
               alt="Professional equipment in a workshop"
             />
@@ -149,9 +152,11 @@ export default async function Home() {
         id="how-it-works"
         className="mx-auto grid max-w-7xl gap-10 px-5 py-16 lg:grid-cols-2 lg:items-center lg:px-8"
       >
-        <div className="overflow-hidden rounded-[32px] bg-[#e9eff0]">
-          <img
-            className="h-[430px] w-full object-cover"
+        <div className="relative h-[430px] overflow-hidden rounded-[32px] bg-[#e9eff0]">
+          <Image
+            fill
+            sizes="(min-width: 1024px) 50vw, 100vw"
+            className="object-cover"
             src="https://images.unsplash.com/photo-1581092921461-eab62e97a780?w=1200"
             alt="Tools and equipment at work"
           />

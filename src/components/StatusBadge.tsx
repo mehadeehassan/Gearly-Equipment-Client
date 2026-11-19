@@ -20,7 +20,19 @@ const statusStyles: Record<string, string> = {
 };
 
 export function StatusBadge({ status }: { status?: string }) {
-  const normalized = String(status || 'unknown').toLowerCase().replaceAll(' ', '_').replaceAll('-', '_');
-  const label = normalized.split('_').map((part) => part ? part[0].toUpperCase() + part.slice(1) : '').join(' ');
-  return <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${statusStyles[normalized] || 'bg-slate-50 text-slate-700 ring-slate-200'}`}>{label}</span>;
+  const normalized = String(status || 'unknown')
+    .toLowerCase()
+    .replaceAll(' ', '_')
+    .replaceAll('-', '_');
+  const label = normalized
+    .split('_')
+    .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : ''))
+    .join(' ');
+  return (
+    <span
+      className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${statusStyles[normalized] || 'bg-slate-50 text-slate-700 ring-slate-200'}`}
+    >
+      {label}
+    </span>
+  );
 }
