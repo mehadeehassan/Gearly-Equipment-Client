@@ -4,12 +4,14 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Check, CreditCard, Eye, Image as ImageIcon, Pencil, Trash2, X, type LucideIcon } from 'lucide-react';
 import type { Booking, Equipment, User } from '@/types';
+import { ConfirmDialog } from './ConfirmDialog';
+import { StatusBadge } from './StatusBadge';
 
 type BookingRow = Booking & { equipmentImage?: string };
 type FavoriteRow = { _id: string; equipment?: Equipment };
-type Action = (path: string, method?: string, body?: unknown) => Promise<void>;
+type Action = (path: string, method?: string, body?: unknown) => Promise<boolean>;
 
-function EquipmentName({ title, image, href }: { title?: string; image?: string; href?: string }) {
+export function EquipmentName({ title, image, href }: { title?: string; image?: string; href?: string }) {
   const [imageFailed, setImageFailed] = useState(false);
   const content = (
     <>
@@ -120,45 +122,46 @@ export function BookingTable({ rows, admin, owner, onPay, payingId }: { rows: Bo
             </>
           )}
           <td className="px-5 py-4">৳{Number(booking.totalAmount).toLocaleString()}</td>
-          <td className="px-5 py-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${booking.paymentStatus === 'paid' ? 'bg-emerald-50 text-emerald-700' : booking.paymentStatus === 'failed' || booking.paymentStatus === 'expired' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-800'}`}>{booking.paymentStatus === 'paid' ? 'Paid' : booking.paymentStatus === 'failed' ? 'Failed' : booking.paymentStatus === 'expired' ? 'Expired' : booking.paymentStatus === 'cancelled' ? 'Cancelled' : booking.paymentStatus === 'pending' ? 'Pending' : 'Unpaid'}</span>{booking.transactionId && <span className="mt-1 block max-w-40 truncate font-mono text-[10px] text-slate-400" title={booking.transactionId}>TX: {booking.transactionId}</span>}</td>
-          <td className="px-5 py-4">{booking.bookingStatus}</td>
-          {!admin && !owner && <td className="px-5 py-4">{booking.paymentStatus !== 'paid' && onPay ? <IconButton icon={CreditCard} label={`Pay for booking ${booking._id}`} tone="positive" disabled={payingId === booking._id} onClick={() => onPay(booking._id)} /> : booking.transactionId ? <span title="Verified Stripe transaction" className="text-xs text-emerald-700">Verified</span> : '—'}</td>}
+          <td className="px-5 py-4"><StatusBadge status={booking.paymentStatus} />{booking.transactionId && <span className="mt-1 block max-w-40 truncate font-mono text-[10px] text-slate-400" title={booking.transactionId}>TX: {booking.transactionId}</span>}</td>
+          <td className="px-5 py-4"><StatusBadge status={booking.bookingStatus} /></td>
+          {!admin && !owner && <td className="px-5 py-4">{onPay && ['pending', 'failed', 'cancelled'].includes(booking.paymentStatus) && ['pending', 'pending_payment', 'payment_failed'].includes(booking.bookingStatus) ? <button type="button" disabled={payingId === booking._id} onClick={() => onPay(booking._id)} className="inline-flex items-center gap-2 whitespace-nowrap rounded-xl bg-[#e8f3ee] px-3 py-2 text-xs font-bold text-emerald-800 disabled:opacity-50"><CreditCard size={15}/>{payingId === booking._id ? 'Opening checkout…' : booking.paymentStatus === 'pending' ? 'Continue payment' : 'Retry payment'}</button> : booking.transactionId ? <span title="Verified Stripe transaction" className="text-xs text-emerald-700">Verified</span> : '—'}</td>}
         </tr>
       ))}
     </DataTable>
   );
 }
 
-export function FavoritesPanel({ data, onRemove, busy }: { data: FavoriteRow[]; onRemove: (id: string) => void; busy: boolean }) {
+export function FavoritesPanel({ data, onRemove, busy }: { data: FavoriteRow[]; onRemove: (id: string) => Promise<boolean>; busy: boolean }) {
+  const [removeTarget, setRemoveTarget] = useState<Equipment | null>(null);
   if (!data.length) return <p className="rounded-2xl bg-white p-8 text-center text-slate-500">No favorites saved yet. Save equipment you would like to rent.</p>;
 
   return (
-    <DataTable headers={['Equipment', 'Category', 'Rental price', 'Actions']}>
-      {data.map((row) => {
-        const equipment = row.equipment;
-        return (
-          <tr key={row._id}>
-            <td className="px-5 py-4"><EquipmentName title={equipment?.title} image={equipment?.image} /></td>
-            <td className="px-5 py-4">{equipment?.category || '—'}</td>
-            <td className="px-5 py-4">৳{Number(equipment?.price || 0).toLocaleString()} / {equipment?.rentalType || '—'}</td>
-            <td className="px-5 py-4">
-              <div className="flex items-center gap-1">
-                {equipment?._id && (
-                  <Link href={`/equipment/${equipment._id}`} title={`View ${equipment.title}`} aria-label={`View ${equipment.title}`} className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 transition hover:bg-slate-100">
-                    <Eye size={17} aria-hidden="true" />
-                  </Link>
-                )}
-                {equipment?._id && <IconButton icon={Trash2} label={`Remove ${equipment.title} from favorites`} tone="danger" disabled={busy} onClick={() => onRemove(equipment._id)} />}
-              </div>
-            </td>
-          </tr>
-        );
-      })}
-    </DataTable>
+    <>
+      <DataTable headers={['Equipment', 'Category', 'Rental price', 'Actions']}>
+        {data.map((row) => {
+          const equipment = row.equipment;
+          return (
+            <tr key={row._id}>
+              <td className="px-5 py-4"><EquipmentName title={equipment?.title} image={equipment?.image} /></td>
+              <td className="px-5 py-4">{equipment?.category || '—'}</td>
+              <td className="px-5 py-4">৳{Number(equipment?.price || 0).toLocaleString()} / {equipment?.rentalType || '—'}</td>
+              <td className="px-5 py-4">
+                <div className="flex items-center gap-1">
+                  {equipment?._id && <Link href={`/equipment/${equipment._id}`} title={`View ${equipment.title}`} aria-label={`View ${equipment.title}`} className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 transition hover:bg-slate-100"><Eye size={17} aria-hidden="true" /></Link>}
+                  {equipment?._id && <IconButton icon={Trash2} label={`Remove ${equipment.title} from favorites`} tone="danger" disabled={busy} onClick={() => setRemoveTarget(equipment)} />}
+                </div>
+              </td>
+            </tr>
+          );
+        })}
+      </DataTable>
+      <ConfirmDialog open={Boolean(removeTarget)} title="Remove saved equipment?" description={`Remove “${removeTarget?.title || 'this item'}” from your favorites?`} onCancel={() => setRemoveTarget(null)} onConfirm={async () => { if (!removeTarget) return false; return onRemove(removeTarget._id); }} />
+    </>
   );
 }
 
 export function EquipmentTable({ rows, admin, onAction, busy }: { rows: Equipment[]; admin: boolean; onAction: Action; busy: boolean }) {
+  const [confirmTarget, setConfirmTarget] = useState<{ item: Equipment; kind: 'delete' | 'reject' } | null>(null);
   function edit(item: Equipment) {
     const title = window.prompt('Equipment title', item.title);
     if (title === null) return;
@@ -168,40 +171,49 @@ export function EquipmentTable({ rows, admin, onAction, busy }: { rows: Equipmen
   }
 
   return (
-    <DataTable headers={['Equipment', 'Category', 'Price', 'Quantity', 'Status', 'Actions']}>
+    <>
+    <DataTable headers={admin ? ['Equipment', 'Owner', 'Category', 'Price', 'Quantity', 'Status', 'Actions'] : ['Equipment', 'Category', 'Price', 'Quantity', 'Status', 'Actions']}>
       {rows.map((item) => (
         <tr key={item._id}>
           <td className="px-5 py-4"><EquipmentName title={item.title} image={item.image} /></td>
+          {admin && <td className="px-5 py-4">{item.ownerName || 'Unknown Owner'}</td>}
           <td className="px-5 py-4">{item.category}</td>
           <td className="px-5 py-4">৳{item.price}/{item.rentalType}</td>
           <td className="px-5 py-4">{item.availableQuantity}</td>
-          <td className="px-5 py-4">{item.status || '—'}</td>
+          <td className="px-5 py-4"><StatusBadge status={item.status} /></td>
           <td className="px-5 py-4">
             <div className="flex items-center gap-1">
               {admin && item.status !== 'approved' && (
                 <IconButton icon={Check} label={`Approve ${item.title}`} tone="positive" disabled={busy} onClick={() => void onAction(`/admin/equipment/${item._id}/status`, 'PATCH', { status: 'approved' })} />
               )}
               {admin && item.status === 'pending' && (
-                <IconButton icon={X} label={`Reject ${item.title}`} tone="danger" disabled={busy} onClick={() => {
-                  if (window.confirm(`Reject “${item.title}”?`)) void onAction(`/admin/equipment/${item._id}/status`, 'PATCH', { status: 'rejected' });
-                }} />
+                <IconButton icon={X} label={`Reject ${item.title}`} tone="danger" disabled={busy} onClick={() => setConfirmTarget({ item, kind: 'reject' })} />
               )}
               {!admin && item.status === 'approved' && (
                 <Link href={`/equipment/${item._id}`} title={`View ${item.title}`} aria-label={`View ${item.title}`} className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 transition hover:bg-slate-100">
                   <Eye size={17} aria-hidden="true" />
                 </Link>
               )}
-              <IconButton icon={Pencil} label={`Edit ${item.title}`} disabled={busy} onClick={() => edit(item)} />
-              <IconButton icon={Trash2} label={`Delete ${item.title}`} tone="danger" disabled={busy} onClick={() => {
-                if (window.confirm(`Delete “${item.title}”? This action cannot be undone.`)) {
-                  void onAction(`${admin ? '/admin' : '/owner'}/equipment/${item._id}`, 'DELETE');
-                }
-              }} />
+              {!admin ? <Link href={`/dashboard/my-equipment/${item._id}/edit`} title={`Edit ${item.title}`} aria-label={`Edit ${item.title}`} className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 transition hover:bg-slate-100"><Pencil size={17}/></Link> : <IconButton icon={Pencil} label={`Edit ${item.title}`} disabled={busy} onClick={() => edit(item)} />}
+              <IconButton icon={Trash2} label={`Delete ${item.title}`} tone="danger" disabled={busy} onClick={() => setConfirmTarget({ item, kind: 'delete' })} />
             </div>
           </td>
         </tr>
       ))}
     </DataTable>
+    <ConfirmDialog
+      open={Boolean(confirmTarget)}
+      title={confirmTarget?.kind === 'reject' ? 'Reject equipment listing?' : 'Delete equipment?'}
+      description={confirmTarget?.kind === 'reject' ? `Reject “${confirmTarget?.item.title}”? It will no longer be available for booking.` : `Delete “${confirmTarget?.item.title}”? This action cannot be undone.`}
+      confirmLabel={confirmTarget?.kind === 'reject' ? 'Reject listing' : 'Confirm Delete'}
+      onCancel={() => setConfirmTarget(null)}
+      onConfirm={async () => {
+        if (!confirmTarget) return false;
+        const { item, kind } = confirmTarget;
+        return onAction(kind === 'reject' ? `/admin/equipment/${item._id}/status` : `${admin ? '/admin' : '/owner'}/equipment/${item._id}`, kind === 'reject' ? 'PATCH' : 'DELETE', kind === 'reject' ? { status: 'rejected' } : undefined);
+      }}
+    />
+    </>
   );
 }
 

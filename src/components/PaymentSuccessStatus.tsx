@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiRequestError, apiFetch } from '@/lib/api';
-import { startPaymentVerificationPolling } from '@/lib/payment-polling.mjs';
 
 type CheckoutStatus = 'checking' | 'paid' | 'failed' | 'expired' | 'pending' | 'timeout' | 'error';
 type Verification = { status: 'paid' | 'pending' | 'failed' | 'expired' | 'unpaid'; bookingId?: string };
@@ -29,19 +28,41 @@ export function PaymentSuccessStatus({ sessionId, userId }: { sessionId: string;
   useEffect(() => {
     if (!sessionId || !userId) { setStatus('error'); return; }
     setStatus('checking');
-    stopRef.current?.();
-    const stop = startPaymentVerificationPolling({
-      verify,
-      onResult: (result) => setStatus(result.status === 'unpaid' ? 'pending' : result.status),
-      onError: (error) => {
-        if (error instanceof ApiRequestError && error.status >= 400 && error.status < 500) {
+    let active = true;
+    let inFlight = false;
+    let pollTimer: ReturnType<typeof setTimeout> | undefined;
+    const controller = new AbortController();
+    const stop = () => {
+      if (!active) return;
+      active = false;
+      if (pollTimer) clearTimeout(pollTimer);
+      if (timeoutTimer) clearTimeout(timeoutTimer);
+      controller.abort();
+    };
+    const terminalStatuses = ['paid', 'failed', 'expired', 'unpaid'];
+    const check = async () => {
+      if (!active || inFlight) return;
+      inFlight = true;
+      try {
+        const result = await verify(controller.signal);
+        if (!active) return;
+        setStatus(result.status === 'unpaid' ? 'pending' : result.status);
+        if (terminalStatuses.includes(result.status)) stop();
+      } catch (error) {
+        if (active && error instanceof ApiRequestError && error.status >= 400 && error.status < 500) {
           setStatus('error');
-          return true;
+          stop();
         }
-        return false;
-      },
-      onTimeout: () => setStatus('timeout'),
-    });
+      } finally {
+        inFlight = false;
+        if (active) pollTimer = setTimeout(check, 3000);
+      }
+    };
+    const timeoutTimer = setTimeout(() => {
+      if (active) setStatus('timeout');
+      stop();
+    }, 60000);
+    void check();
     stopRef.current = stop;
     return () => { stop(); if (stopRef.current === stop) stopRef.current = null; };
   }, [sessionId, userId, retry, verify]);

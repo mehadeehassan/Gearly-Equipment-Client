@@ -76,14 +76,19 @@ export function EquipmentDetailActions({ item, userId }: { item: Equipment; user
     }
     setBusy(true);
     const payload = { equipmentId: item._id, startDate, endDate, quantity, contactNumber: form.get('contactNumber'), deliveryAddress: form.get('deliveryAddress'), notes: form.get('notes') };
+    let bookingId: string | undefined;
     try {
-      await apiFetch('/bookings', { method: 'POST', body: JSON.stringify(payload) }, userId);
-      toast.success('Booking request created', { id: 'booking-created' });
-      setOpen(false);
-      router.push('/dashboard/my-rentals');
-      router.refresh();
+      const booking = await apiFetch<{ bookingId: string }>('/bookings', { method: 'POST', body: JSON.stringify(payload) }, userId);
+      bookingId = booking.bookingId;
+      const checkout = await apiFetch<{ url: string }>(`/payments/checkout/${bookingId}`, { method: 'POST' }, userId);
+      window.location.assign(checkout.url);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Booking failed', { id: 'booking-create-error' });
+      if (bookingId) {
+        toast.error('Your booking is saved, but checkout could not start. You can retry payment from My Rentals.', { id: 'checkout-start-error' });
+        router.push('/dashboard/my-rentals');
+      } else {
+        toast.error(error instanceof Error ? error.message : 'Booking failed', { id: 'booking-create-error' });
+      }
     } finally { setBusy(false); }
   }
 
