@@ -1,5 +1,5 @@
-import { EquipmentCard } from '@/components/EquipmentCard';
-import { Reveal } from '@/components/Reveal';
+import { EquipmentCard } from '@/components/equipment/EquipmentCard';
+import { Reveal } from '@/components/shared/Reveal';
 import { publicFetch } from '@/lib/api';
 import type { Equipment } from '@/types';
 import Link from 'next/link';

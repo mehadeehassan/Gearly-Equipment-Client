@@ -1,6 +1,6 @@
-import { EquipmentCard } from '@/components/EquipmentCard';
-import { EquipmentExplorer } from '@/components/EquipmentExplorer';
-import { EquipmentSkeleton } from '@/components/Skeletons';
+import { EquipmentCard } from '@/components/equipment/EquipmentCard';
+import { EquipmentExplorer } from '@/components/equipment/EquipmentExplorer';
+import { EquipmentSkeleton } from '@/components/shared/Skeletons';
 import { publicFetch } from '@/lib/api';
 import type { Equipment, EquipmentResponse } from '@/types';
 import Link from 'next/link';

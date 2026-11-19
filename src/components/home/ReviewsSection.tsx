@@ -1,4 +1,4 @@
-import { ReviewCarousel } from '@/components/ReviewCarousel';
+import { ReviewCarousel } from '@/components/home/ReviewCarousel';
 import { publicFetch } from '@/lib/api';
 import type { Review } from '@/types';
 

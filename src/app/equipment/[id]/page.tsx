@@ -1,10 +1,10 @@
-import { EquipmentDetailActions } from '@/components/EquipmentDetailActions';
+import { EquipmentDetailActions } from '@/components/equipment/EquipmentDetailActions';
 import { publicFetch } from '@/lib/api';
 import { auth } from '@/lib/auth';
 import type { Equipment } from '@/types';
 import { headers } from 'next/headers';
 import Link from 'next/link';
-import { EquipmentImageReveal } from '@/components/EquipmentImageReveal';
+import { EquipmentImageReveal } from '@/components/equipment/EquipmentImageReveal';
 import { notFound, redirect } from 'next/navigation';
 export default async function EquipmentDetails({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

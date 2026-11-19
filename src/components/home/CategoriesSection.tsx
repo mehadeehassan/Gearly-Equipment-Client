@@ -1,4 +1,4 @@
-import { Reveal } from '@/components/Reveal';
+import { Reveal } from '@/components/shared/Reveal';
 import Link from 'next/link';
 
 const categories = [

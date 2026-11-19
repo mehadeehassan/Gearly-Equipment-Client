@@ -14,8 +14,8 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
-import { ConfirmDialog } from './ConfirmDialog';
-import { StatusBadge } from './StatusBadge';
+import { ConfirmDialog } from '../shared/ConfirmDialog';
+import { StatusBadge } from '../shared/StatusBadge';
 
 type BookingRow = Booking & { equipmentImage?: string };
 type FavoriteRow = { _id: string; equipment?: Equipment };

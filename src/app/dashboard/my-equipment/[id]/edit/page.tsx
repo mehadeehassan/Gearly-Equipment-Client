@@ -1,4 +1,4 @@
-import { EquipmentEditClient } from '@/components/EquipmentEditClient';
+import { EquipmentEditClient } from '@/components/equipment/EquipmentEditClient';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';

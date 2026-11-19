@@ -2,7 +2,6 @@
 import { apiFetch } from '@/lib/api';
 import { notify as toast } from '@/lib/toast';
 import type { Analytics, Booking, Equipment, User } from '@/types';
-import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -14,6 +13,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { DashboardNavigation, getDashboardLinks } from './DashboardNavigation';
 import {
   BookingTable,
   EquipmentName,
@@ -21,31 +21,9 @@ import {
   FavoritesPanel,
   UsersTable,
 } from './DashboardTables';
-import { ImageUpload } from './ImageUpload';
-import { TableSkeleton } from './Skeletons';
-import { StatusBadge } from './StatusBadge';
-const customerLinks = [
-  ['overview', 'Overview'],
-  ['my-rentals', 'My rentals'],
-  ['favorites', 'Favorites'],
-  ['profile', 'Profile'],
-];
-const ownerLinks = [
-  ['overview', 'Overview'],
-  ['add-equipment', 'Add equipment'],
-  ['my-equipment', 'My equipment'],
-  ['rentals', 'Rental requests'],
-  ['analytics', 'Analytics'],
-  ['profile', 'Profile'],
-];
-const adminLinks = [
-  ['overview', 'Overview'],
-  ['users', 'All users'],
-  ['equipment', 'All equipment'],
-  ['rentals', 'All rentals'],
-  ['analytics', 'Analytics'],
-  ['profile', 'Profile'],
-];
+import { ImageUpload } from '../shared/ImageUpload';
+import { TableSkeleton } from '../shared/Skeletons';
+import { StatusBadge } from '../shared/StatusBadge';
 type DashboardData = Analytics & {
   bookings?: Booking[];
   favorites?: { _id: string; equipment?: Equipment }[];
@@ -57,7 +35,7 @@ export function DashboardClient({ user }: { user: User }) {
   const role = (user.role || 'customer').toLowerCase();
   const isOwner = role === 'owner';
   const isAdmin = role === 'admin';
-  const links = isAdmin ? adminLinks : isOwner ? ownerLinks : customerLinks;
+  const links = getDashboardLinks(role);
   const pathname = usePathname();
   const router = useRouter();
   const section = pathname.split('/')[2] || 'overview';
@@ -218,26 +196,7 @@ export function DashboardClient({ user }: { user: User }) {
         <p className="mt-2 text-sm text-slate-500">Welcome back, {user.name || 'there'}.</p>
       </div>
       <div className="grid gap-7 lg:grid-cols-[230px_1fr]">
-        <aside className="h-fit rounded-3xl border border-slate-200 bg-white p-3">
-          <div className="mb-3 rounded-2xl bg-[#edf4f7] p-4">
-            <p className="font-bold">{user.name}</p>
-            <p className="mt-1 truncate text-xs text-slate-500">{user.email}</p>
-            <span className="mt-3 inline-block rounded-full bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-deep">
-              {role}
-            </span>
-          </div>
-          <nav className="space-y-1">
-            {links.map(([key, label]) => (
-              <Link
-                key={key}
-                href={`/dashboard/${key}`}
-                className={`block rounded-xl px-4 py-3 text-sm font-semibold transition ${section === key ? 'bg-[#263b49] text-white' : 'text-slate-600 hover:bg-slate-50'}`}
-              >
-                {label}
-              </Link>
-            ))}
-          </nav>
-        </aside>
+        <DashboardNavigation user={user} role={role} section={section} />
         <section className="min-w-0">{content}</section>
       </div>
     </div>

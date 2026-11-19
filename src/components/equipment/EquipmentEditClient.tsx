@@ -6,7 +6,7 @@ import type { Equipment } from '@/types';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { ImageUpload } from './ImageUpload';
+import { ImageUpload } from '@/components/shared/ImageUpload';
 
 export function EquipmentEditClient({
   equipmentId,

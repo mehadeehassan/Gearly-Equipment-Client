@@ -1,4 +1,4 @@
-import { EquipmentSkeleton } from '@/components/Skeletons';
+import { EquipmentSkeleton } from '@/components/shared/Skeletons';
 export default function Loading() {
   return (
     <div className="mx-auto max-w-7xl px-5 py-12">
