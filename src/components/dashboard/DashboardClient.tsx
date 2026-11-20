@@ -7,7 +7,13 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -143,6 +149,12 @@ export function DashboardClient({ user }: { user: User }) {
   const title = links.find(([key]) => key === section)?.[1] || 'Overview';
   const content = loading ? (
     <TableSkeleton />
+  ) : loadError && ['overview', 'analytics'].includes(section) ? (
+    <div className="rounded-3xl border border-rose-200 bg-white p-8 text-center" role="alert">
+      <h2 className="text-lg font-bold">Unable to load dashboard analytics</h2>
+      <p className="mt-2 text-sm text-slate-500">{loadError}</p>
+      <button type="button" onClick={() => setRefresh((value) => value + 1)} className="mt-5 rounded-xl bg-[#263b49] px-5 py-3 text-sm font-bold text-white">Try again</button>
+    </div>
   ) : section === 'profile' && loadError ? (
     <div className="rounded-3xl border border-rose-200 bg-white p-8 text-center">
       <h2 className="text-lg font-bold">Unable to load your profile</h2>
@@ -169,8 +181,10 @@ export function DashboardClient({ user }: { user: User }) {
         router.push('/dashboard/my-equipment');
       }}
     />
-  ) : section === 'analytics' || section === 'overview' ? (
-    <AnalyticsPanel data={data || {}} role={role} onRecentPageChange={changePage} />
+  ) : section === 'analytics' ? (
+    <AnalyticsPanel data={data || {}} role={role} />
+  ) : section === 'overview' ? (
+    <OverviewPanel data={data || {}} role={role} onRecentPageChange={changePage} />
   ) : section === 'favorites' ? (
     <FavoritesPanel
       data={data?.favorites || []}
@@ -221,165 +235,195 @@ export function DashboardClient({ user }: { user: User }) {
     </div>
   );
 }
-function AnalyticsPanel({ data, role, onRecentPageChange }: { data: DashboardData; role: string; onRecentPageChange: (page: number) => void }) {
+function OverviewPanel({ data, role, onRecentPageChange }: { data: DashboardData; role: string; onRecentPageChange: (page: number) => void }) {
   const admin = role === 'admin';
   const owner = role === 'owner';
-  const entries: [string, number | string | undefined][] = admin
+  const metrics = admin
     ? [
-        ['Total users', data.totalUsers],
-        ['Total equipment', data.totalEquipment],
-        ['Total bookings', data.totalBookings],
-        ['Pending approvals', data.pendingApprovals],
-        ['Completed rentals', data.completedRentals],
-        ['Total revenue', `৳${Number(data.totalRevenue || 0).toLocaleString()}`],
-        ['Total reviews', data.totalReviews],
-        ['Homepage reviews', data.homepageReviews],
-      ]
+        ['Total users', data.totalUsers], ['Customers', data.totalCustomers], ['Owners', data.totalOwners],
+        ['Equipment listings', data.totalEquipment], ['Pending approvals', data.pendingApprovals], ['Total bookings', data.totalBookings],
+        ['Successful payments', data.totalPayments], ['Paid booking revenue', `৳${Number(data.totalRevenue || 0).toLocaleString()}`],
+      ] as [string, number | string | undefined][]
     : owner
       ? [
-          ['Total equipment', data.totalEquipment],
-          ['Approved equipment', data.approvedEquipment],
-          ['Pending approval', data.pendingEquipment],
-          ['Bookings received', data.totalBookings],
-          ['Active rentals', data.activeRentals],
-          ['Completed rentals', data.completedRentals],
-          ['Total earnings', `৳${Number(data.totalEarnings || 0).toLocaleString()}`],
-          ['My equipment reviews', data.myEquipmentReviews],
-        ]
+          ['My equipment', data.totalEquipment], ['Available units', data.availableUnits], ['Total bookings', data.totalBookings],
+          ['Pending bookings', data.pendingBookings], ['Active bookings', data.activeRentals], ['Completed bookings', data.completedRentals],
+          ['Approved listings', data.approvedEquipment], ['Pending listings', data.pendingEquipment],
+          ['Rejected listings', data.rejectedEquipment], ['My paid earnings', `৳${Number(data.totalEarnings || 0).toLocaleString()}`],
+        ] as [string, number | string | undefined][]
       : [
-          ['Total bookings', data.totalBookings],
-          ['Active rentals', data.activeRentals],
-          ['Completed rentals', data.completedRentals],
-          ['Pending bookings', data.pendingBookings],
+          ['Total bookings', data.totalBookings], ['Active rentals', data.activeRentals],
+          ['Completed rentals', data.completedRentals], ['Pending bookings', data.pendingBookings],
           ['Total spending', `৳${Number(data.totalSpending || 0).toLocaleString()}`],
-        ];
-  const primaryChart = admin
-    ? data.monthlyBookings
-    : owner
-      ? data.monthlyEarnings
-      : data.monthlyRentals;
-  const primaryTitle = admin ? 'Monthly bookings' : owner ? 'Monthly earnings' : 'Monthly rentals';
-  const secondaryChart = admin ? data.monthlyRevenue : undefined;
-  const Chart = ({
-    title,
-    rows,
-    color,
-    currency = false,
-  }: {
-    title: string;
-    rows?: { _id: string; total: number }[];
-    color: string;
-    currency?: boolean;
-  }) => (
-    <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6">
-      <h2 className="font-bold">{title}</h2>
-      {rows?.length ? (
-        <div className="mt-5 h-70 min-w-0 w-full sm:h-85">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={rows} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-              <defs>
-                <linearGradient
-                  id={`fill-${title.replaceAll(' ', '-')}`}
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
-                  <stop offset="5%" stopColor={color} stopOpacity={0.25} />
-                  <stop offset="95%" stopColor={color} stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e8edf0" />
-              <XAxis
-                dataKey="_id"
-                tickFormatter={(value: string) => value.slice(5)}
-                tick={{ fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tickFormatter={(value: number) =>
-                  currency ? `৳${Number(value).toLocaleString()}` : value.toLocaleString()
-                }
-                tick={{ fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-                width={64}
-              />
-              <Tooltip
-                formatter={(value) => [
-                  currency ? `৳${Number(value).toLocaleString()}` : value,
-                  title,
-                ]}
-                labelFormatter={(label) => `Month: ${label}`}
-              />
-              <Area
-                name={currency ? 'Amount' : 'Bookings'}
-                type="monotone"
-                dataKey="total"
-                stroke={color}
-                strokeWidth={2.5}
-                fill={`url(#fill-${title.replaceAll(' ', '-')})`}
-                activeDot={{ r: 5 }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      ) : (
-        <p className="py-12 text-center text-sm text-slate-400">No monthly activity yet.</p>
-      )}
-    </div>
-  );
+        ] as [string, number | string | undefined][];
+  const accent = admin ? 'border-t-[#5f8ba3]' : owner ? 'border-t-[#4d9b7a]' : 'border-t-slate-300';
+
   return (
-    <div>
+    <div className="space-y-5">
+      {(admin || owner) && (
+        <div className={`rounded-3xl border border-slate-200 border-t-4 ${accent} bg-white p-5 sm:p-6`}>
+          <p className="text-xs font-bold uppercase tracking-[.16em] text-slate-500">{admin ? 'Platform overview' : 'Business overview'}</p>
+          <h2 className="mt-2 text-xl font-bold text-slate-900">{admin ? 'Marketplace at a glance' : 'Your rental business at a glance'}</h2>
+          <p className="mt-1 text-sm text-slate-500">{admin ? 'Platform-wide activity and paid transaction totals.' : 'Only activity and earnings linked to your equipment and account.'}</p>
+        </div>
+      )}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {entries.map(([label, value]) => (
-          <div key={label} className="rounded-3xl border border-slate-200 bg-white p-5">
+        {metrics.map(([label, value], index) => (
+          <div key={label} className={`rounded-3xl border border-slate-200 border-t-4 ${accent} bg-white p-5`}>
             <p className="text-sm text-slate-500">{label}</p>
-            <p className="mt-3 text-3xl font-black">{value ?? 0}</p>
+            <p className={`mt-3 text-3xl font-black ${index === metrics.length - 1 && (admin || owner) ? 'text-[#263b49]' : 'text-slate-900'}`}>{value ?? 0}</p>
           </div>
         ))}
       </div>
-      <div
-        className={`mt-5 grid min-w-0 gap-5 ${secondaryChart ? 'xl:grid-cols-2' : 'grid-cols-1'}`}
-      >
-        <Chart title={primaryTitle} rows={primaryChart} color="#5f8ba3" currency={owner} />
-        {secondaryChart && (
-          <Chart title="Monthly revenue" rows={secondaryChart} color="#4d9b7a" currency />
-        )}
-      </div>
+      {admin && <div className="grid gap-5 xl:grid-cols-2"><DistributionSummary title="Booking status" rows={data.bookingStatusDistribution} /><DistributionSummary title="Equipment approval status" rows={data.equipmentStatusDistribution} /></div>}
+      {owner && <div className="grid gap-5 xl:grid-cols-2"><DistributionSummary title="My equipment status" rows={data.equipmentStatusDistribution} /><DistributionSummary title="My booking pipeline" rows={data.bookingStatusDistribution} /></div>}
       {!owner && !admin && (
-        <div className="mt-5 rounded-3xl border border-slate-200 bg-white p-5 sm:p-6">
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6">
           <h2 className="font-bold">Recent bookings</h2>
           {data.recentBookings?.length ? (
             <div className="mt-4 divide-y divide-slate-100">
               {data.recentBookings.map((booking) => (
-                <div
-                  key={booking._id}
-                  className="flex min-w-0 items-center justify-between gap-4 py-3"
-                >
-                  <EquipmentName
-                    title={booking.equipmentTitle}
-                    image={booking.equipmentImage}
-                    href={`/equipment/${booking.equipmentId}`}
-                  />
+                <div key={booking._id} className="flex min-w-0 items-center justify-between gap-4 py-3">
+                  <EquipmentName title={booking.equipmentTitle} image={booking.equipmentImage} href={`/equipment/${booking.equipmentId}`} />
                   <StatusBadge status={booking.bookingStatus} />
                 </div>
               ))}
             </div>
-          ) : (
-            <p className="py-8 text-center text-sm text-slate-400">
-              Your recent bookings will appear here.
-            </p>
-          )}
-          {data.recentBookingsPagination && (
-            <Pagination pagination={data.recentBookingsPagination} onPageChange={onRecentPageChange} />
-          )}
+          ) : <p className="py-8 text-center text-sm text-slate-400">Your recent bookings will appear here.</p>}
+          {data.recentBookingsPagination && <Pagination pagination={data.recentBookingsPagination} onPageChange={onRecentPageChange} />}
         </div>
       )}
     </div>
   );
 }
+
+const CHART_COLORS = ['#5f8ba3', '#4d9b7a', '#d49b45', '#c66d68', '#7d75a8', '#6e9b9a'];
+
+function AnalyticsPanel({ data, role }: { data: DashboardData; role: string }) {
+  return role === 'owner' ? <OwnerAnalytics data={data} /> : <AdminAnalytics data={data} />;
+}
+
+function AdminAnalytics({ data }: { data: DashboardData }) {
+  return (
+    <div className="space-y-5">
+      <div className="rounded-3xl border border-slate-200 border-t-4 border-t-[#5f8ba3] bg-white p-5 sm:p-6">
+        <p className="text-xs font-bold uppercase tracking-[.16em] text-slate-500">Admin analytics</p>
+        <h2 className="mt-2 text-xl font-bold">Platform trends and distribution</h2>
+        <p className="mt-1 text-sm text-slate-500">Marketplace-wide bookings, users, revenue, and equipment mix.</p>
+      </div>
+      <div className="grid min-w-0 gap-5 xl:grid-cols-2">
+        <MonthlyTrendCard title="Booking trend" description="Bookings created per month across the platform." rows={data.monthlyBookings} color="#5f8ba3" />
+        <MonthlyTrendCard title="User registrations" description="New customer and owner accounts by registration month." rows={data.userRegistrationTrend} color="#4d9b7a" />
+        <MonthlyTrendCard title="Paid booking revenue" description="Booking amounts from successfully paid transactions." rows={data.monthlyRevenue} color="#d49b45" currency />
+        <DonutCard title="Equipment category mix" description="Current listings grouped by equipment category." rows={data.categoryDistribution} />
+        <DonutCard title="Booking status" description="All bookings grouped by their current status." rows={data.bookingStatusDistribution} />
+      </div>
+    </div>
+  );
+}
+
+function OwnerAnalytics({ data }: { data: DashboardData }) {
+  const equipmentRows = (data.mostBookedEquipment || []).map((item) => ({ _id: item.title, total: item.totalBookings }));
+  return (
+    <div className="space-y-5">
+      <div className="rounded-3xl border border-slate-200 border-t-4 border-t-[#4d9b7a] bg-white p-5 sm:p-6">
+        <p className="text-xs font-bold uppercase tracking-[.16em] text-slate-500">Owner analytics</p>
+        <h2 className="mt-2 text-xl font-bold">Your equipment performance</h2>
+        <p className="mt-1 text-sm text-slate-500">Charts include only your equipment, its bookings, and your paid earnings.</p>
+      </div>
+      <div className="grid min-w-0 gap-5 xl:grid-cols-2">
+        <MonthlyTrendCard title="My paid earnings" description="Monthly paid amounts associated with your owner account." rows={data.monthlyEarnings} color="#4d9b7a" currency />
+        <MonthlyTrendCard title="Bookings for my equipment" description="Booking requests created for your listings each month." rows={data.monthlyOwnerBookings} color="#5f8ba3" />
+        <BarBreakdownCard title="Most booked equipment" description="Your five most booked listings, ranked by booking count." rows={equipmentRows} color="#4d9b7a" />
+        <DonutCard title="My equipment status" description="Your listings grouped by approval status." rows={data.equipmentStatusDistribution} />
+        <DonutCard title="My booking status" description="Bookings scoped to your equipment and owner account." rows={data.bookingStatusDistribution} />
+      </div>
+    </div>
+  );
+}
+
+function MonthlyTrendCard({ title, description, rows, color, currency = false }: { title: string; description: string; rows?: { _id: string; total: number }[]; color: string; currency?: boolean }) {
+  return (
+    <div className="min-w-0 rounded-3xl border border-slate-200 bg-white p-5 sm:p-6">
+      <h3 className="font-bold">{title}</h3>
+      <p className="mt-1 text-xs text-slate-500">{description}</p>
+      {rows?.length ? <div className="mt-4 h-72 min-w-0 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={rows} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e8edf0" />
+            <XAxis dataKey="_id" tickFormatter={(value: string) => value.slice(5)} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+            <YAxis tickFormatter={(value: number) => currency ? `৳${Number(value).toLocaleString()}` : value.toLocaleString()} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={64} />
+            <Tooltip formatter={(value) => [currency ? `৳${Number(value).toLocaleString()}` : Number(value).toLocaleString(), title]} labelFormatter={(label) => `Month: ${label}`} />
+            <Area name={title} type="monotone" dataKey="total" stroke={color} strokeWidth={2.5} fill={color} fillOpacity={0.12} activeDot={{ r: 5 }} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div> : <ChartEmptyState />}
+    </div>
+  );
+}
+
+function DonutCard({ title, description, rows }: { title: string; description: string; rows?: { _id: string; total: number }[] }) {
+  return (
+    <div className="min-w-0 rounded-3xl border border-slate-200 bg-white p-5 sm:p-6">
+      <h3 className="font-bold">{title}</h3>
+      <p className="mt-1 text-xs text-slate-500">{description}</p>
+      {rows?.length ? <div className="mt-4 h-72 min-w-0 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie data={rows} dataKey="total" nameKey="_id" innerRadius={58} outerRadius={92} paddingAngle={2}>
+              {rows.map((row, index) => <Cell key={`${row._id}-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
+            </Pie>
+            <Tooltip formatter={(value) => [Number(value).toLocaleString(), 'Records']} />
+            <Legend formatter={(value) => String(value).replaceAll('_', ' ')} />
+          </PieChart>
+        </ResponsiveContainer>
+      </div> : <ChartEmptyState />}
+    </div>
+  );
+}
+
+function BarBreakdownCard({ title, description, rows, color }: { title: string; description: string; rows?: { _id: string; total: number }[]; color: string }) {
+  const height = Math.max(220, Math.min(360, (rows?.length || 0) * 42));
+  return (
+    <div className="min-w-0 rounded-3xl border border-slate-200 bg-white p-5 sm:p-6">
+      <h3 className="font-bold">{title}</h3>
+      <p className="mt-1 text-xs text-slate-500">{description}</p>
+      {rows?.length ? <div className="mt-4 min-w-0 w-full" style={{ height }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
+            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e8edf0" />
+            <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+            <YAxis type="category" dataKey="_id" width={125} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+            <Tooltip formatter={(value) => [Number(value).toLocaleString(), 'Bookings']} />
+            <Bar dataKey="total" fill={color} radius={[0, 6, 6, 0]} maxBarSize={24} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div> : <ChartEmptyState />}
+    </div>
+  );
+}
+
+function DistributionSummary({ title, rows }: { title: string; rows?: { _id: string; total: number }[] }) {
+  const total = rows?.reduce((sum, row) => sum + row.total, 0) || 0;
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6">
+      <h3 className="font-bold">{title}</h3>
+      {rows?.length ? <ul className="mt-4 space-y-4">
+        {rows.map((row, index) => (
+          <li key={row._id}>
+            <div className="mb-1 flex justify-between gap-3 text-sm"><span className="capitalize text-slate-600">{row._id.replaceAll('_', ' ')}</span><span className="font-bold text-slate-900">{row.total.toLocaleString()}</span></div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${total ? (row.total / total) * 100 : 0}%`, backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} /></div>
+          </li>
+        ))}
+      </ul> : <ChartEmptyState />}
+    </div>
+  );
+}
+
+function ChartEmptyState() {
+  return <p className="grid h-56 place-items-center text-center text-sm text-slate-400">No records available for this chart yet.</p>;
+}
+
 function EquipmentForm({ onDone, userId }: { onDone: () => void; userId: string }) {
   const [busy, setBusy] = useState(false);
   const [image, setImage] = useState('');

@@ -72,10 +72,13 @@ export interface EquipmentResponse {
 }
 export interface Analytics {
   totalUsers?: number;
+  totalCustomers?: number;
+  totalOwners?: number;
   totalEquipment?: number;
   totalBookings?: number;
   pendingApprovals?: number;
   completedRentals?: number;
+  totalPayments?: number;
   totalRevenue?: number;
   totalReviews?: number;
   homepageReviews?: number;
@@ -83,6 +86,8 @@ export interface Analytics {
   totalEarnings?: number;
   approvedEquipment?: number;
   pendingEquipment?: number;
+  rejectedEquipment?: number;
+  availableUnits?: number;
   activeRentals?: number;
   pendingBookings?: number;
   totalSpending?: number;
@@ -90,6 +95,12 @@ export interface Analytics {
   monthlyEarnings?: { _id: string; total: number }[];
   monthlyRevenue?: { _id: string; total: number }[];
   monthlyRentals?: { _id: string; total: number }[];
+  userRegistrationTrend?: { _id: string; total: number }[];
+  categoryDistribution?: { _id: string; total: number }[];
+  bookingStatusDistribution?: { _id: string; total: number }[];
+  equipmentStatusDistribution?: { _id: string; total: number }[];
+  monthlyOwnerBookings?: { _id: string; total: number }[];
+  mostBookedEquipment?: { equipmentId: string; title: string; totalBookings: number; completedBookings: number }[];
   recentBookings?: Booking[];
   recentBookingsPagination?: PaginationInfo;
 }
