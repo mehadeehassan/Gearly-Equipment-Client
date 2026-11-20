@@ -35,7 +35,7 @@ export function EquipmentCard({ item }: { item: Equipment }) {
           <div className="mb-2 flex items-center justify-between gap-2 text-xs text-slate-500">
             <span className="truncate">⌖ {item.location}</span>
             <span className={item.availableQuantity > 0 ? 'text-emerald-700' : 'text-rose-600'}>
-              {item.availableQuantity > 0 ? 'Available' : 'Unavailable'}
+              {item.availableQuantity > 0 ? 'Available' : 'Out of stock'}
             </span>
           </div>
           <h2 className="line-clamp-1 text-lg font-bold tracking-tight group-hover:text-blue-deep">

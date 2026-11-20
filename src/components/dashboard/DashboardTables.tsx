@@ -153,6 +153,7 @@ export function BookingTable({
           'Amount',
           'Payment',
           'Booking',
+          'Review',
           'Actions',
         ];
 
@@ -215,6 +216,29 @@ export function BookingTable({
           </td>
           {!admin && !owner && (
             <td className="px-5 py-4">
+              {canReview && booking.paymentStatus === 'paid' && booking.bookingStatus === 'completed' ? (
+                booking.reviewed || reviewedNow.has(booking._id) ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                    <Check size={15} aria-hidden="true" /> Reviewed
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    title="Write a review"
+                    aria-label={`Write a review for ${booking.equipmentTitle || 'this rental'}`}
+                    onClick={() => setReviewTarget(booking)}
+                    className="grid h-9 w-9 place-items-center rounded-lg border border-[#b7ccd6] text-[#31566b] transition hover:bg-[#edf4f7] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6c91a7]"
+                  >
+                    <Star size={17} aria-hidden="true" />
+                  </button>
+                )
+              ) : (
+                <span className="text-slate-300">—</span>
+              )}
+            </td>
+          )}
+          {!admin && !owner && (
+            <td className="px-5 py-4">
               {onPay &&
               ['pending', 'failed', 'cancelled'].includes(booking.paymentStatus) &&
               ['pending', 'pending_payment', 'payment_failed'].includes(booking.bookingStatus) ? (
@@ -237,21 +261,6 @@ export function BookingTable({
                 </span>
               ) : (
                 '—'
-              )}
-              {canReview && booking.paymentStatus === 'paid' && booking.bookingStatus === 'completed' && (
-                <div className="mt-2">
-                  {booking.reviewed || reviewedNow.has(booking._id) ? (
-                    <span className="text-xs font-semibold text-slate-500">Reviewed</span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setReviewTarget(booking)}
-                      className="whitespace-nowrap rounded-lg border border-[#b7ccd6] px-3 py-2 text-xs font-bold text-[#31566b] transition hover:bg-[#edf4f7]"
-                    >
-                      Write a Review
-                    </button>
-                  )}
-                </div>
               )}
             </td>
           )}

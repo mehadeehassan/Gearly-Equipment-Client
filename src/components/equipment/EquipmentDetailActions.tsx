@@ -1,20 +1,27 @@
 'use client';
 
-import { apiFetch } from '@/lib/api';
+import { apiFetch, ApiRequestError } from '@/lib/api';
 import { authClient } from '@/lib/auth-client';
 import { notify as toast } from '@/lib/toast';
 import type { Equipment } from '@/types';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Heart, X } from 'lucide-react';
+import { AlertCircle, Heart, X } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 type Favorite = { equipmentId?: string; equipment?: { _id?: string } };
+type Availability = { available: boolean; remainingQuantity: number };
+
+const unavailableMessage =
+  'Equipment unavailable for the selected dates. An existing booking overlaps this rental period and there is not enough quantity left. Please choose another date range or lower the quantity.';
 
 export function EquipmentDetailActions({ item, userId }: { item: Equipment; userId: string }) {
   const [open, setOpen] = useState(false);
   const [bookingErrors, setBookingErrors] = useState<Record<string, string>>({});
+  const [availabilityStatus, setAvailabilityStatus] = useState<
+    'idle' | 'checking' | 'available' | 'unavailable' | 'error'
+  >('idle');
   const [busy, setBusy] = useState(false);
   const [favoriteBusy, setFavoriteBusy] = useState(true);
   const [favoriteLoadError, setFavoriteLoadError] = useState(false);
@@ -96,6 +103,65 @@ export function EquipmentDetailActions({ item, userId }: { item: Equipment; user
     : 0;
   const estimatedTotal = Number(item.price) * billedUnits * bookingDates.quantity;
 
+  useEffect(() => {
+    if (
+      !open ||
+      !bookingDates.startDate ||
+      !bookingDates.endDate ||
+      bookingDates.startDate < initialDate ||
+      bookingDates.endDate <= bookingDates.startDate ||
+      bookingDates.quantity < 1 ||
+      bookingDates.quantity > item.availableQuantity
+    ) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setAvailabilityStatus('checking');
+      const query = new URLSearchParams({
+        startDate: bookingDates.startDate,
+        endDate: bookingDates.endDate,
+        quantity: String(bookingDates.quantity),
+      });
+      try {
+        const result = await apiFetch<Availability>(
+          `/equipment/${item._id}/availability?${query.toString()}`,
+          { signal: controller.signal },
+          userId,
+        );
+        if (!controller.signal.aborted)
+          setAvailabilityStatus(result.available ? 'available' : 'unavailable');
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setAvailabilityStatus('error');
+        if (error instanceof ApiRequestError && error.status === 401) {
+          toast.error('Your session expired. Please sign in again.', {
+            id: `booking-availability-auth-${item._id}`,
+          });
+        } else {
+          toast.error('Could not check availability. The server will verify the dates when you submit.', {
+            id: `booking-availability-${item._id}`,
+          });
+        }
+      }
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [
+    open,
+    item._id,
+    item.availableQuantity,
+    userId,
+    initialDate,
+    bookingDates.startDate,
+    bookingDates.endDate,
+    bookingDates.quantity,
+  ]);
+
   async function book(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formElement = event.currentTarget;
@@ -105,6 +171,7 @@ export function EquipmentDetailActions({ item, userId }: { item: Equipment; user
     const quantity = Number(form.get('quantity'));
     const nextErrors: Record<string, string> = {};
     if (!startDate) nextErrors.startDate = 'Choose a start date.';
+    else if (startDate < initialDate) nextErrors.startDate = 'Choose today or a future date.';
     if (!endDate) nextErrors.endDate = 'Choose an end date.';
     if (new Date(endDate) <= new Date(startDate)) nextErrors.endDate = 'End date must be after the start date.';
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > item.availableQuantity) nextErrors.quantity = 'Choose a quantity within the available amount.';
@@ -116,6 +183,7 @@ export function EquipmentDetailActions({ item, userId }: { item: Equipment; user
       toast.error(Object.values(nextErrors)[0]);
       return;
     }
+    if (availabilityStatus === 'checking' || availabilityStatus === 'unavailable') return;
     setBookingErrors({});
     setBusy(true);
     const payload = {
@@ -148,6 +216,11 @@ export function EquipmentDetailActions({ item, userId }: { item: Equipment; user
           { id: 'checkout-start-error' },
         );
         router.push('/dashboard/my-rentals');
+      } else if (error instanceof ApiRequestError && error.status === 409) {
+        setAvailabilityStatus('unavailable');
+        toast.error(unavailableMessage, { id: 'booking-date-conflict' });
+      } else if (error instanceof ApiRequestError && error.status === 401) {
+        toast.error('Your session expired. Please sign in again.', { id: 'booking-auth-error' });
       } else {
         toast.error(error instanceof TypeError ? 'Network error. Check your connection and try again.' : 'Unable to submit your booking. Please try again.', {
           id: 'booking-create-error',
@@ -254,9 +327,18 @@ export function EquipmentDetailActions({ item, userId }: { item: Equipment; user
                     type="date"
                     min={initialDate}
                     value={bookingDates.startDate}
-                    onChange={(event) =>
-                      { setBookingErrors((errors) => ({ ...errors, startDate: '' })); setBookingDates((value) => ({ ...value, startDate: event.target.value })); }
-                    }
+                    onChange={(event) => {
+                      const nextDates = { ...bookingDates, startDate: event.target.value };
+                      setBookingDates(nextDates);
+                      setBookingErrors((errors) => ({ ...errors, startDate: '', endDate: '' }));
+                      setAvailabilityStatus(
+                        nextDates.startDate >= initialDate &&
+                          nextDates.endDate > nextDates.startDate &&
+                          nextDates.quantity <= item.availableQuantity
+                          ? 'checking'
+                          : 'idle',
+                      );
+                    }}
                     className={`mt-2 h-12 w-full rounded-xl border px-3 font-normal ${bookingErrors.startDate ? 'border-red-500' : 'border-slate-200'}`}
                   />
                   <span id="booking-startDate-error" className="block min-h-4 text-xs font-normal text-red-600" role="alert">{bookingErrors.startDate || ''}</span>
@@ -276,6 +358,24 @@ export function EquipmentDetailActions({ item, userId }: { item: Equipment; user
                   />
                   <span id="booking-endDate-error" className="block min-h-4 text-xs font-normal text-red-600" role="alert">{bookingErrors.endDate || ''}</span>
                 </label>
+                {availabilityStatus === 'unavailable' && (
+                  <div
+                    role="alert"
+                    aria-live="assertive"
+                    className="flex gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 sm:col-span-2"
+                  >
+                    <AlertCircle size={19} className="mt-0.5 shrink-0 text-rose-600" aria-hidden="true" />
+                    <div>
+                      <p className="font-bold">Unavailable for these dates</p>
+                      <p className="mt-1">{unavailableMessage}</p>
+                    </div>
+                  </div>
+                )}
+                {availabilityStatus === 'checking' && (
+                  <p className="text-xs text-slate-500 sm:col-span-2" aria-live="polite">
+                    Checking date availability…
+                  </p>
+                )}
                 <label className="text-sm font-semibold">
                   Quantity
                   <input
@@ -287,12 +387,21 @@ export function EquipmentDetailActions({ item, userId }: { item: Equipment; user
                     min="1"
                     max={item.availableQuantity}
                     value={bookingDates.quantity}
-                    onChange={(event) =>
-                      { setBookingErrors((errors) => ({ ...errors, quantity: '' })); setBookingDates((value) => ({
-                        ...value,
+                    onChange={(event) => {
+                      const nextDates = {
+                        ...bookingDates,
                         quantity: Math.max(1, Number(event.target.value) || 1),
-                      })); }
-                    }
+                      };
+                      setBookingDates(nextDates);
+                      setBookingErrors((errors) => ({ ...errors, quantity: '' }));
+                      setAvailabilityStatus(
+                        nextDates.startDate >= initialDate &&
+                          nextDates.endDate > nextDates.startDate &&
+                          nextDates.quantity <= item.availableQuantity
+                          ? 'checking'
+                          : 'idle',
+                      );
+                    }}
                     className={`mt-2 h-12 w-full rounded-xl border px-3 font-normal ${bookingErrors.quantity ? 'border-red-500' : 'border-slate-200'}`}
                   />
                   <span id="booking-quantity-error" className="block min-h-4 text-xs font-normal text-red-600" role="alert">{bookingErrors.quantity || ''}</span>
@@ -354,10 +463,10 @@ export function EquipmentDetailActions({ item, userId }: { item: Equipment; user
                   </p>
                 </div>
                 <button
-                  disabled={busy}
+                  disabled={busy || availabilityStatus === 'checking' || availabilityStatus === 'unavailable'}
                   className="rounded-xl bg-[#263b49] px-5 py-3.5 font-bold text-white disabled:cursor-wait disabled:opacity-50 sm:col-span-2"
                 >
-                  {busy ? 'Submitting booking…' : 'Confirm booking request'}
+                  {busy ? 'Submitting booking…' : availabilityStatus === 'checking' ? 'Checking dates…' : 'Confirm booking request'}
                 </button>
               </form>
             </motion.div>
