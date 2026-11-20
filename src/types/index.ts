@@ -56,6 +56,14 @@ export interface Booking {
 export interface ApiList<T> {
   [key: string]: T[] | number;
 }
+export interface PaginationInfo {
+  currentPage: number;
+  limit: number;
+  totalRecords: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
 export interface EquipmentResponse {
   equipment: Equipment[];
   total: number;
@@ -83,6 +91,7 @@ export interface Analytics {
   monthlyRevenue?: { _id: string; total: number }[];
   monthlyRentals?: { _id: string; total: number }[];
   recentBookings?: Booking[];
+  recentBookingsPagination?: PaginationInfo;
 }
 
 export interface Review {

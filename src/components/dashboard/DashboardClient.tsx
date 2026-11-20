@@ -1,8 +1,8 @@
 'use client';
 import { apiFetch, ApiRequestError } from '@/lib/api';
 import { notify as toast } from '@/lib/toast';
-import type { Analytics, Booking, Equipment, User } from '@/types';
-import { usePathname, useRouter } from 'next/navigation';
+import type { Analytics, Booking, Equipment, PaginationInfo, User } from '@/types';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import {
   Area,
@@ -24,12 +24,14 @@ import {
 import { ImageUpload } from '../shared/ImageUpload';
 import { TableSkeleton } from '../shared/Skeletons';
 import { StatusBadge } from '../shared/StatusBadge';
+import { Pagination } from './Pagination';
 type DashboardData = Analytics & {
   bookings?: Booking[];
   favorites?: { _id: string; equipment?: Equipment }[];
   users?: User[];
   equipment?: Equipment[];
   user?: User;
+  pagination?: PaginationInfo;
 };
 export function DashboardClient({ user }: { user: User }) {
   const role = (user.role || 'customer').toLowerCase();
@@ -38,6 +40,8 @@ export function DashboardClient({ user }: { user: User }) {
   const links = getDashboardLinks(role);
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const page = Math.max(1, Number(searchParams.get('page')) || 1);
   const section = pathname.split('/')[2] || 'overview';
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,8 +67,12 @@ export function DashboardClient({ user }: { user: User }) {
       overview: isAdmin ? '/admin/analytics' : isOwner ? '/owner/analytics' : '/customer/analytics',
       'add-equipment': '/owner/equipment',
     };
+    const paginatedSections = ['my-rentals', 'favorites', 'my-equipment', 'rentals', 'users', 'equipment'];
+    const endpoint = paths[section] || paths.overview;
+    const shouldPaginate = paginatedSections.includes(section) || (section === 'overview' && !isOwner && !isAdmin);
+    const requestPath = shouldPaginate ? `${endpoint}?page=${page}&limit=10` : endpoint;
 
-    apiFetch<DashboardData>(paths[section] || paths.overview, {}, user.id)
+    apiFetch<DashboardData>(requestPath, {}, user.id)
       .then((result) => {
         if (active) setData(result);
       })
@@ -82,7 +90,14 @@ export function DashboardClient({ user }: { user: User }) {
     return () => {
       active = false;
     };
-  }, [section, refresh, isOwner, isAdmin, user.id]);
+  }, [section, refresh, isOwner, isAdmin, user.id, page]);
+
+  function changePage(nextPage: number) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (nextPage <= 1) params.delete('page');
+    else params.set('page', String(nextPage));
+    router.push(`${pathname}${params.size ? `?${params.toString()}` : ''}`, { scroll: false });
+  }
 
   async function action(path: string, method = 'PATCH', body?: unknown): Promise<boolean> {
     if (busyAction) return false;
@@ -155,7 +170,7 @@ export function DashboardClient({ user }: { user: User }) {
       }}
     />
   ) : section === 'analytics' || section === 'overview' ? (
-    <AnalyticsPanel data={data || {}} role={role} />
+    <AnalyticsPanel data={data || {}} role={role} onRecentPageChange={changePage} />
   ) : section === 'favorites' ? (
     <FavoritesPanel
       data={data?.favorites || []}
@@ -199,12 +214,17 @@ export function DashboardClient({ user }: { user: User }) {
       </div>
       <div className="grid gap-7 lg:grid-cols-[230px_1fr]">
         <DashboardNavigation user={user} role={role} section={section} />
-        <section className="min-w-0">{content}</section>
+        <section className="min-w-0">
+          {content}
+          {!loading && section !== 'overview' && data?.pagination && (
+            <Pagination pagination={data.pagination} onPageChange={changePage} />
+          )}
+        </section>
       </div>
     </div>
   );
 }
-function AnalyticsPanel({ data, role }: { data: Analytics; role: string }) {
+function AnalyticsPanel({ data, role, onRecentPageChange }: { data: DashboardData; role: string; onRecentPageChange: (page: number) => void }) {
   const admin = role === 'admin';
   const owner = role === 'owner';
   const entries: [string, number | string | undefined][] = admin
@@ -354,6 +374,9 @@ function AnalyticsPanel({ data, role }: { data: Analytics; role: string }) {
             <p className="py-8 text-center text-sm text-slate-400">
               Your recent bookings will appear here.
             </p>
+          )}
+          {data.recentBookingsPagination && (
+            <Pagination pagination={data.recentBookingsPagination} onPageChange={onRecentPageChange} />
           )}
         </div>
       )}

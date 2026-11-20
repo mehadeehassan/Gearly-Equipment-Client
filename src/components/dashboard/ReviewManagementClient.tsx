@@ -2,13 +2,15 @@
 
 import { apiFetch } from '@/lib/api';
 import { notify as toast } from '@/lib/toast';
-import type { Review, User } from '@/types';
+import type { PaginationInfo, Review, User } from '@/types';
 import { Search, Star, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { DashboardNavigation } from './DashboardNavigation';
 import { EquipmentName } from './DashboardTables';
+import { Pagination } from './Pagination';
 
 type ManagedReview = Review & {
   equipmentId: string;
@@ -30,11 +32,17 @@ export function ReviewManagementClient({ user, mode }: ReviewManagementClientPro
   const section = isAdmin ? 'admin/reviews' : 'owner/reviews';
   const title = isAdmin ? 'Customer Reviews' : 'My Equipment Reviews';
   const endpoint = isAdmin ? '/admin/reviews' : '/owner/reviews';
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const page = Math.max(1, Number(searchParams.get('page')) || 1);
+  const filter = (['featured', 'hidden'].includes(searchParams.get('filter') || '') ? searchParams.get('filter') : 'all') as 'all' | 'featured' | 'hidden';
   const [reviews, setReviews] = useState<ManagedReview[]>([]);
+  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
+  const [counts, setCounts] = useState({ totalReviews: 0, featuredReviews: 0 });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [reload, setReload] = useState(0);
-  const [filter, setFilter] = useState<'all' | 'featured' | 'hidden'>('all');
   const [search, setSearch] = useState('');
   const [busyReviewId, setBusyReviewId] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<ManagedReview | null>(null);
@@ -43,9 +51,16 @@ export function ReviewManagementClient({ user, mode }: ReviewManagementClientPro
     let active = true;
     setLoading(true);
     setLoadError('');
-    apiFetch<{ reviews: ManagedReview[] }>(endpoint, {}, user.id)
+    const query = new URLSearchParams({ page: String(page), limit: '10' });
+    if (searchParams.get('search')) query.set('search', searchParams.get('search') || '');
+    if (isAdmin && filter !== 'all') query.set('filter', filter);
+    apiFetch<{ reviews: ManagedReview[]; pagination: PaginationInfo; counts?: { totalReviews: number; featuredReviews: number } }>(`${endpoint}?${query}`, {}, user.id)
       .then((result) => {
-        if (active) setReviews(result.reviews || []);
+        if (active) {
+          setReviews(result.reviews || []);
+          setPagination(result.pagination);
+          if (result.counts) setCounts(result.counts);
+        }
       })
       .catch((error) => {
         if (!active) return;
@@ -59,19 +74,25 @@ export function ReviewManagementClient({ user, mode }: ReviewManagementClientPro
     return () => {
       active = false;
     };
-  }, [endpoint, user.id, reload]);
+  }, [endpoint, user.id, reload, page, filter, searchParams, isAdmin]);
 
-  const normalizedSearch = search.trim().toLowerCase();
-  const visibleReviews = reviews.filter((review) => {
-    const matchesFilter = !isAdmin || filter === 'all' ||
-      (filter === 'featured' ? review.isFeatured : !review.isFeatured);
-    const matchesSearch = !normalizedSearch ||
-      `${review.customerName || ''} ${review.customerEmail || ''} ${review.equipmentTitle || ''}`
-        .toLowerCase()
-        .includes(normalizedSearch);
-    return matchesFilter && matchesSearch;
-  });
-  const featuredCount = reviews.filter((review) => review.isFeatured).length;
+  useEffect(() => setSearch(searchParams.get('search') || ''), [searchParams]);
+
+  function updateQuery(values: { page?: number; filter?: 'all' | 'featured' | 'hidden'; search?: string }) {
+    const params = new URLSearchParams(searchParams.toString());
+    const nextPage = values.page ?? 1;
+    if (nextPage <= 1) params.delete('page');
+    else params.set('page', String(nextPage));
+    if (values.filter !== undefined) {
+      if (values.filter === 'all') params.delete('filter');
+      else params.set('filter', values.filter);
+    }
+    if (values.search !== undefined) {
+      if (values.search.trim()) params.set('search', values.search.trim());
+      else params.delete('search');
+    }
+    router.push(`${pathname}${params.size ? `?${params.toString()}` : ''}`, { scroll: false });
+  }
 
   async function toggleFeatured(review: ManagedReview) {
     if (!isAdmin || busyReviewId) return;
@@ -84,6 +105,8 @@ export function ReviewManagementClient({ user, mode }: ReviewManagementClientPro
         user.id,
       );
       setReviews((current) => current.map((item) => item._id === review._id ? { ...item, isFeatured } : item));
+      setCounts((current) => ({ ...current, featuredReviews: current.featuredReviews + (isFeatured ? 1 : -1) }));
+      setReload((value) => value + 1);
       toast.success(isFeatured ? 'Review added to Homepage' : 'Review removed from Homepage');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not update Homepage selection');
@@ -101,6 +124,9 @@ export function ReviewManagementClient({ user, mode }: ReviewManagementClientPro
         : `/owner/reviews/${deleteTarget._id}`;
       await apiFetch(path, { method: 'DELETE' }, user.id);
       setReviews((current) => current.filter((review) => review._id !== deleteTarget._id));
+      setCounts((current) => ({ ...current, totalReviews: Math.max(0, current.totalReviews - 1), featuredReviews: Math.max(0, current.featuredReviews - (deleteTarget.isFeatured ? 1 : 0)) }));
+      if (reviews.length === 1 && page > 1) updateQuery({ page: page - 1 });
+      setReload((value) => value + 1);
       toast.success('Review deleted');
       return true;
     } catch (error) {
@@ -125,10 +151,11 @@ export function ReviewManagementClient({ user, mode }: ReviewManagementClientPro
             <div>
               <h2 className="text-xl font-bold">{title}</h2>
               <p className="mt-1 text-sm text-slate-500">
-                {isAdmin ? `${reviews.length} total · ${featuredCount} shown on Homepage` : `${reviews.length} reviews on your equipment`}
+                {isAdmin ? `${counts.totalReviews} total · ${counts.featuredReviews} shown on Homepage` : `${pagination?.totalRecords || 0} reviews on your equipment`}
               </p>
             </div>
-            <label className="relative block w-full sm:max-w-xs">
+            <form onSubmit={(event) => { event.preventDefault(); updateQuery({ search, page: 1 }); }} className="flex w-full gap-2 sm:max-w-sm">
+              <label className="relative block min-w-0 flex-1">
               <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 value={search}
@@ -137,7 +164,9 @@ export function ReviewManagementClient({ user, mode }: ReviewManagementClientPro
                 aria-label="Search customer or equipment reviews"
                 className="h-10 w-full rounded-xl border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-[#86a8b9]"
               />
-            </label>
+              </label>
+              <button type="submit" className="rounded-xl bg-[#263b49] px-3 text-xs font-bold text-white">Search</button>
+            </form>
           </div>
 
           {isAdmin && (
@@ -151,7 +180,7 @@ export function ReviewManagementClient({ user, mode }: ReviewManagementClientPro
                   key={value}
                   type="button"
                   aria-pressed={filter === value}
-                  onClick={() => setFilter(value)}
+                  onClick={() => updateQuery({ filter: value, page: 1 })}
                   className={`rounded-full px-4 py-2 text-xs font-bold ${filter === value ? 'bg-[#263b49] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                 >
                   {label}
@@ -167,9 +196,9 @@ export function ReviewManagementClient({ user, mode }: ReviewManagementClientPro
               <p>{loadError}</p>
               <button type="button" onClick={() => setReload((value) => value + 1)} className="mt-3 font-bold underline">Try again</button>
             </div>
-          ) : visibleReviews.length ? (
+          ) : reviews.length ? (
             <div className="mt-5 space-y-4">
-              {visibleReviews.map((review) => (
+              {reviews.map((review) => (
                 <article key={review._id} className="rounded-2xl border border-slate-200 p-4 sm:p-5">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="flex min-w-0 items-center gap-3">
@@ -217,7 +246,7 @@ export function ReviewManagementClient({ user, mode }: ReviewManagementClientPro
                   {isAdmin && review.status !== 'approved' && (
                     <p className="mt-3 text-xs font-semibold capitalize text-amber-700">{review.status || 'Unapproved'} · only approved reviews can be shown on Homepage</p>
                   )}
-                  <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">{review.comment}</p>
+                  <p className="mt-4 whitespace-pre-wrap wrap-break-word text-sm leading-6 text-slate-700">{review.comment}</p>
                 </article>
               ))}
             </div>
@@ -227,6 +256,7 @@ export function ReviewManagementClient({ user, mode }: ReviewManagementClientPro
               <p className="mt-1 text-sm text-slate-500">{isAdmin && !reviews.length ? 'Customer reviews will appear here after completed rentals.' : 'Try a different search or filter.'}</p>
             </div>
           )}
+          {!loading && pagination && <Pagination pagination={pagination} onPageChange={(nextPage) => updateQuery({ page: nextPage })} />}
         </main>
       </div>
       <ConfirmDialog
@@ -256,7 +286,7 @@ function CustomerAvatar({ name, image }: { name: string; image?: string }) {
     );
   }
   return (
-    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#edf4f7] font-bold text-[#31566b]" aria-hidden="true">
+    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#edf4f7] font-bold text-blue-deep" aria-hidden="true">
       {name.slice(0, 1).toUpperCase() || 'C'}
     </span>
   );

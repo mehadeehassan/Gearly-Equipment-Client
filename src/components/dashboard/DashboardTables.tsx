@@ -227,7 +227,7 @@ export function BookingTable({
                     title="Write a review"
                     aria-label={`Write a review for ${booking.equipmentTitle || 'this rental'}`}
                     onClick={() => setReviewTarget(booking)}
-                    className="grid h-9 w-9 place-items-center rounded-lg border border-[#b7ccd6] text-[#31566b] transition hover:bg-[#edf4f7] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6c91a7]"
+                    className="grid h-9 w-9 place-items-center rounded-lg border border-[#b7ccd6] text-blue-deep transition hover:bg-[#edf4f7] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6c91a7]"
                   >
                     <Star size={17} aria-hidden="true" />
                   </button>
