@@ -8,7 +8,11 @@ export async function getBackendToken() {
   if (!/^[a-fA-F0-9]{24}$/.test(user.id))
     throw new Error('User ID must be a MongoDB ObjectId so the API can identify the account.');
   return jwt.sign(
-    { id: user.id, role: user.role || 'customer', name: user.name || '' },
+    {
+      id: user.id,
+      role: (user.role || 'customer').trim().toLowerCase(),
+      name: user.name || '',
+    },
     process.env.JWT_SECRET!,
     {
       algorithm: 'HS256',
