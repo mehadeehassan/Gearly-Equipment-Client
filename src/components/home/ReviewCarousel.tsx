@@ -20,7 +20,7 @@ export function ReviewCarousel({ reviews }: { reviews: Review[] }) {
   if (!reviews.length) {
     return (
       <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
-        Customer reviews will appear here after renters share their experience.
+        Customer reviews selected by Gearly will appear here.
       </div>
     );
   }

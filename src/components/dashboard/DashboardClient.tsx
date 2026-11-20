@@ -215,6 +215,8 @@ function AnalyticsPanel({ data, role }: { data: Analytics; role: string }) {
         ['Pending approvals', data.pendingApprovals],
         ['Completed rentals', data.completedRentals],
         ['Total revenue', `৳${Number(data.totalRevenue || 0).toLocaleString()}`],
+        ['Total reviews', data.totalReviews],
+        ['Homepage reviews', data.homepageReviews],
       ]
     : owner
       ? [
@@ -225,6 +227,7 @@ function AnalyticsPanel({ data, role }: { data: Analytics; role: string }) {
           ['Active rentals', data.activeRentals],
           ['Completed rentals', data.completedRentals],
           ['Total earnings', `৳${Number(data.totalEarnings || 0).toLocaleString()}`],
+          ['My equipment reviews', data.myEquipmentReviews],
         ]
       : [
           ['Total bookings', data.totalBookings],

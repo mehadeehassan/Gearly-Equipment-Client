@@ -13,6 +13,7 @@ const ownerLinks = [
   ['add-equipment', 'Add equipment'],
   ['my-equipment', 'My equipment'],
   ['rentals', 'Rental requests'],
+  ['owner/reviews', 'My equipment reviews'],
   ['analytics', 'Analytics'],
   ['profile', 'Profile'],
 ];
@@ -22,6 +23,7 @@ const adminLinks = [
   ['users', 'All users'],
   ['equipment', 'All equipment'],
   ['rentals', 'All rentals'],
+  ['admin/reviews', 'Customer reviews'],
   ['analytics', 'Analytics'],
   ['profile', 'Profile'],
 ];

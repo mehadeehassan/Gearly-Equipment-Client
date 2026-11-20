@@ -69,6 +69,9 @@ export interface Analytics {
   pendingApprovals?: number;
   completedRentals?: number;
   totalRevenue?: number;
+  totalReviews?: number;
+  homepageReviews?: number;
+  myEquipmentReviews?: number;
   totalEarnings?: number;
   approvedEquipment?: number;
   pendingEquipment?: number;
