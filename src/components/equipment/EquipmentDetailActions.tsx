@@ -135,10 +135,13 @@ export function EquipmentDetailActions({ item, userId }: { item: Equipment; user
       } catch (error) {
         if (controller.signal.aborted) return;
         setAvailabilityStatus('error');
-        if (error instanceof ApiRequestError && error.status === 401) {
-          toast.error('Your session expired. Please sign in again.', {
-            id: `booking-availability-auth-${item._id}`,
-          });
+        if (error instanceof ApiRequestError && (error.status === 401 || error.status === 403)) {
+          toast.error(
+            error.status === 401
+              ? 'Your session expired. Please sign in again.'
+              : 'Your account cannot check booking availability.',
+            { id: `booking-availability-auth-${item._id}` },
+          );
         } else {
           toast.error('Could not check availability. The server will verify the dates when you submit.', {
             id: `booking-availability-${item._id}`,
@@ -353,7 +356,18 @@ export function EquipmentDetailActions({ item, userId }: { item: Equipment; user
                     type="date"
                     min={bookingDates.startDate || initialDate}
                     value={bookingDates.endDate}
-                    onChange={(event) => { setBookingErrors((errors) => ({ ...errors, endDate: '' })); setBookingDates((value) => ({ ...value, endDate: event.target.value })); }}
+                    onChange={(event) => {
+                      const nextDates = { ...bookingDates, endDate: event.target.value };
+                      setBookingDates(nextDates);
+                      setBookingErrors((errors) => ({ ...errors, endDate: '' }));
+                      setAvailabilityStatus(
+                        nextDates.startDate >= initialDate &&
+                          nextDates.endDate > nextDates.startDate &&
+                          nextDates.quantity <= item.availableQuantity
+                          ? 'checking'
+                          : 'idle',
+                      );
+                    }}
                     className={`mt-2 h-12 w-full rounded-xl border px-3 font-normal ${bookingErrors.endDate ? 'border-red-500' : 'border-slate-200'}`}
                   />
                   <span id="booking-endDate-error" className="block min-h-4 text-xs font-normal text-red-600" role="alert">{bookingErrors.endDate || ''}</span>
