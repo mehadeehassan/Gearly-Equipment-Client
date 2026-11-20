@@ -8,7 +8,6 @@ import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { DashboardNavigation } from './DashboardNavigation';
 import { EquipmentName } from './DashboardTables';
 import { Pagination } from './Pagination';
 
@@ -29,7 +28,6 @@ type ReviewManagementClientProps = {
 
 export function ReviewManagementClient({ user, mode }: ReviewManagementClientProps) {
   const isAdmin = mode === 'admin';
-  const section = isAdmin ? 'admin/reviews' : 'owner/reviews';
   const title = isAdmin ? 'Customer Reviews' : 'My Equipment Reviews';
   const endpoint = isAdmin ? '/admin/reviews' : '/owner/reviews';
   const pathname = usePathname();
@@ -138,15 +136,13 @@ export function ReviewManagementClient({ user, mode }: ReviewManagementClientPro
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-5 py-8 lg:px-8">
+    <div>
       <div className="mb-7">
         <p className="text-xs font-bold tracking-[.18em] text-[#6c91a7]">YOUR GEARLY SPACE</p>
         <h1 className="mt-2 text-3xl font-black sm:text-4xl">{title}</h1>
         <p className="mt-2 text-sm text-slate-500">Welcome back, {user.name || 'there'}.</p>
       </div>
-      <div className="grid items-start gap-6 lg:grid-cols-[230px_minmax(0,1fr)]">
-        <DashboardNavigation user={user} role={mode} section={section} />
-        <main className="min-w-0 rounded-3xl border border-slate-200 bg-white p-4 sm:p-6">
+      <main className="min-w-0 rounded-3xl border border-slate-200 bg-white p-4 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">{title}</h2>
@@ -257,8 +253,7 @@ export function ReviewManagementClient({ user, mode }: ReviewManagementClientPro
             </div>
           )}
           {!loading && pagination && <Pagination pagination={pagination} onPageChange={(nextPage) => updateQuery({ page: nextPage })} />}
-        </main>
-      </div>
+      </main>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="Delete this review?"

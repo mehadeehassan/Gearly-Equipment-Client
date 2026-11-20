@@ -13,7 +13,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { DashboardNavigation, getDashboardLinks } from './DashboardNavigation';
+import { getDashboardLinks } from './DashboardNavigation';
 import {
   BookingTable,
   EquipmentName,
@@ -206,21 +206,18 @@ export function DashboardClient({ user }: { user: User }) {
   );
 
   return (
-    <div className="mx-auto max-w-7xl px-5 py-10 lg:px-8">
+    <div>
       <div className="mb-8">
         <p className="text-xs font-bold tracking-[.18em] text-[#6c91a7]">YOUR GEARLY SPACE</p>
         <h1 className="mt-2 text-4xl font-black">{title}</h1>
         <p className="mt-2 text-sm text-slate-500">Welcome back, {user.name || 'there'}.</p>
       </div>
-      <div className="grid gap-7 lg:grid-cols-[230px_1fr]">
-        <DashboardNavigation user={user} role={role} section={section} />
-        <section className="min-w-0">
-          {content}
-          {!loading && section !== 'overview' && data?.pagination && (
-            <Pagination pagination={data.pagination} onPageChange={changePage} />
-          )}
-        </section>
-      </div>
+      <section className="min-w-0">
+        {content}
+        {!loading && section !== 'overview' && data?.pagination && (
+          <Pagination pagination={data.pagination} onPageChange={changePage} />
+        )}
+      </section>
     </div>
   );
 }

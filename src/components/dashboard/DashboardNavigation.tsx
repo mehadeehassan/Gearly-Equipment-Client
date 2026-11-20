@@ -1,5 +1,8 @@
+'use client';
+
 import type { User } from '@/types';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 const customerLinks = [
   ['overview', 'Overview'],
@@ -35,12 +38,16 @@ export function getDashboardLinks(role: string) {
 export function DashboardNavigation({
   user,
   role,
-  section,
 }: {
   user: User;
   role: string;
-  section: string;
 }) {
+  const pathname = usePathname();
+  const segments = pathname.split('/').filter(Boolean).slice(1);
+  const section = ['owner', 'admin'].includes(segments[0])
+    ? `${segments[0]}/${segments[1] || ''}`
+    : segments[0] || 'overview';
+
   return (
     <aside className="h-fit rounded-3xl border border-slate-200 bg-white p-3">
       <div className="mb-3 rounded-2xl bg-[#edf4f7] p-4">
